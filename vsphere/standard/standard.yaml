@@ -1,0 +1,172 @@
+---
+## Cluster configs
+
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: ${CLUSTER_NAME}
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["10.240.0.0/16"]
+    services:
+      cidrBlocks: ["10.96.128.0/12"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: VSphereCluster
+    name: ${CLUSTER_NAME}
+  controlPlaneRef:
+    kind: TalosControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    name: ${CLUSTER_NAME}-controlplane
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VSphereCluster
+metadata:
+  name: ${CLUSTER_NAME}
+spec:
+  controlPlaneEndpoint:
+    host: ${CONTROLEPLANE_ENDPOINT}
+    port: 6443
+  identityRef:
+    kind: Secret
+    name: ${CLUSTER_NAME}
+  server: ${VSPHERE_SERVER}
+  # TODO
+  thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
+---
+## Control plane configs
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+kind: TalosControlPlane
+metadata:
+  name: ${CLUSTER_NAME}-controlplane
+spec:
+  version: v${KUBERNETES_VERSION}
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  infrastructureTemplate:
+    kind: VSphereMachineTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: ${CLUSTER_NAME}-controlplane
+  controlPlaneConfig:
+    controlplane:
+      generateType: controlplane
+      talosVersion: ${TALOS_VERSION}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VSphereMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-controlplane
+spec:
+  template:
+    spec:
+      cloneMode: linkedClone
+      datacenter: ${VSPHERE_DATACENTER}
+      datastore: datastore5
+      diskGiB: 10
+      folder: ${VSPHERE_FOLDER}
+      memoryMiB: 8192
+      network:
+        devices:
+        - dhcp4: true
+          dhcp6: false
+          networkName: ${VSPHERE_NETWORK}
+      numCPUs: 2
+      os: Linux
+      resourcePool: "${VSPHERE_RESOURCE_POOL}"
+      server: ${VSPHERE_SERVER}
+      storagePolicyName: ""
+      template: ${VSPHERE_TEMPLATE}
+      # TODO
+      thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
+---
+## Worker configs
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+    nodepool: nodepool-a
+  name: ${CLUSTER_NAME}-workers
+spec:
+  clusterName: ${CLUSTER_NAME}
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+      nodepool: nodepool-a
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+        nodepool: nodepool-a
+    spec:
+      clusterName: ${CLUSTER_NAME}
+      # TODO: a/b in a multi-zone setup
+      failureDomain: ${VSPHERE_ZONE}-a
+      version: ${KUBERNETES_VERSION}
+      bootstrap:
+        configRef:
+          name: ${CLUSTER_NAME}-workers
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
+      infrastructureRef:
+        name: ${CLUSTER_NAME}-workers
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: VSphereMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VSphereMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-worker
+spec:
+  template:
+    spec:
+      cloneMode: linkedClone
+      datacenter: ${VSPHERE_DATACENTER}
+      datastore: datastore5
+      diskGiB: 10
+      folder: ${VSPHERE_FOLDER}
+      memoryMiB: 4096
+      network:
+        devices:
+        - dhcp4: true
+          dhcp6: false
+          networkName: ${VSPHERE_NETWORK}
+      numCPUs: 2
+      os: Linux
+      resourcePool: "${VSPHERE_RESOURCE_POOL}"
+      server: ${VSPHERE_SERVER}
+      storagePolicyName: ""
+      template: ${VSPHERE_TEMPLATE}
+      # TODO
+      thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
+metadata:
+  name: ${CLUSTER_NAME}-workers
+spec:
+  template:
+    spec:
+      generateType: join
+      talosVersion: ${TALOS_VERSION}
+---
+## Health check for workers
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: MachineHealthCheck
+metadata:
+  name: ${CLUSTER_NAME}-worker-hc
+spec:
+  clusterName: ${CLUSTER_NAME}
+  maxUnhealthy: 40%
+  nodeStartupTimeout: 20m
+  selector:
+    matchLabels:
+      nodepool: nodepool-a
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
