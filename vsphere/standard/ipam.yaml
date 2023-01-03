@@ -1,0 +1,29 @@
+apiVersion: ipam.cluster.x-k8s.io/v1alpha1
+kind: InClusterIPPool
+metadata:
+  name: ${CLUSTER_NAME}-controlplane
+spec:
+  start: 192.168.5.10
+  end: 192.168.5.14
+  prefix: 24
+  gateway: 192.168.0.1
+---
+#apiVersion: ipam.cluster.x-k8s.io/v1alpha1
+#kind: IPAddressClaim
+#metadata:
+#  name: controlplane-claim
+#spec:
+#  poolRef:
+#    apiGroup: ipam.cluster.x-k8s.io
+#    kind: InClusterIPPool
+#    name: ${CLUSTER_NAME}-controlplane
+---
+apiVersion: ipam.cluster.x-k8s.io/v1alpha1
+kind: InClusterIPPool
+metadata:
+  name: ${CLUSTER_NAME}-worker
+spec:
+  start: 192.168.5.128
+  end: 192.168.5.250
+  prefix: 24
+  gateway: 192.168.0.1
