@@ -24,9 +24,11 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereCluster
 metadata:
   name: ${CLUSTER_NAME}
+  labels:
+    cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-controlplane
 spec:
   controlPlaneEndpoint:
-    host: ${CONTROLEPLANE_ENDPOINT}
+    host: ${CONTROL_PLANE_ENDPOINT}
     port: 6443
   identityRef:
     kind: Secret
@@ -56,6 +58,8 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-controlplane
+  labels:
+    cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-controlplane
 spec:
   template:
     spec:
@@ -63,12 +67,19 @@ spec:
       datacenter: ${VSPHERE_DATACENTER}
       datastore: datastore5
       diskGiB: 10
+      additionalDisksGiB:
+      - 10
       folder: ${VSPHERE_FOLDER}
       memoryMiB: 8192
       network:
         devices:
-        - dhcp4: true
+        - dhcp4: false
           dhcp6: false
+          gateway4: 192.168.0.1
+          addressesFromPools:
+          - apiGroup: ipam.cluster.x-k8s.io
+            kind: InClusterIPPool
+            name: ${CLUSTER_NAME}-controlplane
           networkName: ${VSPHERE_NETWORK}
       numCPUs: 2
       os: Linux
@@ -102,7 +113,7 @@ spec:
     spec:
       clusterName: ${CLUSTER_NAME}
       # TODO: a/b in a multi-zone setup
-      failureDomain: ${VSPHERE_ZONE}-a
+      #failureDomain: ${VSPHERE_ZONE}-a
       version: ${KUBERNETES_VERSION}
       bootstrap:
         configRef:
@@ -117,7 +128,9 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
 metadata:
-  name: ${CLUSTER_NAME}-worker
+  name: ${CLUSTER_NAME}-workers
+  labels:
+    cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-worker
 spec:
   template:
     spec:
@@ -125,12 +138,19 @@ spec:
       datacenter: ${VSPHERE_DATACENTER}
       datastore: datastore5
       diskGiB: 10
+      additionalDisksGiB:
+      - 10
       folder: ${VSPHERE_FOLDER}
       memoryMiB: 4096
       network:
         devices:
-        - dhcp4: true
+        - dhcp4: false
           dhcp6: false
+          gateway4: 192.168.0.1
+          addressesFromPools:
+          - apiGroup: ipam.cluster.x-k8s.io
+            kind: InClusterIPPool
+            name: ${CLUSTER_NAME}-worker
           networkName: ${VSPHERE_NETWORK}
       numCPUs: 2
       os: Linux
