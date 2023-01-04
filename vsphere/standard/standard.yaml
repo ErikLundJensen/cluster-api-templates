@@ -53,6 +53,19 @@ spec:
     controlplane:
       generateType: controlplane
       talosVersion: ${TALOS_VERSION}
+      configPatches:
+      - op: replace
+        path: /machine/install
+        value:
+          extraKernelArgs:
+          - talos.platform=vmware
+      - op: add
+        path: /cluster/network/cni
+        value:
+          name: custom
+          urls:
+          - https://raw.githubusercontent.com/projectcalico/calico/v3.24.5/manifests/tigera-operator.yaml
+          - https://raw.githubusercontent.com/projectcalico/calico/v3.24.5/manifests/custom-resources.yaml
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate

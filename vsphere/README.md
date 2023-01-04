@@ -11,7 +11,7 @@ kubectl apply -f secrets/secret.yaml -n vmware-test
 . ../standard/standard.env
 envsubst < ../standard/ipam.yaml >ipam.yaml
 envsubst < ../standard/standard.yaml >cluster.yaml
-  
+
 clusterctl init --bootstrap talos --control-plane talos --infrastructure vsphere
 
 # Have to init kubeadm to avoid vSphere errors. Kubeadm controller is not used.
@@ -39,6 +39,10 @@ kubectl apply -f cluster.yaml -n vmware-test
 export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1`
 kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
 
+kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > cluster-talosconfig
+talosctl config merge cluster-talosconfig
+talosctl -n ${IP} version
+
 talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}  --talosconfig=./talosconfig 
 
 # Switch kubectl to remote Talos cluster
@@ -46,6 +50,7 @@ export KUBECONFIG=./kubeconfig-remote
 talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
 
 # Install vmwtool as DaemonSet to let vSphere Center see the VM detailes like IP address
+rm -f vmtoolsd-secret.yaml 
 talosctl -n ${IP} --endpoints ${IP} config new vmtoolsd-secret.yaml --roles os:admin --talosconfig ./talosconfig
 kubectl -n kube-system create secret generic talos-vmtoolsd-config   --from-file=talosconfig=./vmtoolsd-secret.yaml
 kubectl apply -f ../standard/vmtools.yaml
@@ -57,9 +62,20 @@ kubectl taint nodes -l kubernetes.io/os=linux node.cloudprovider.kubernetes.io/u
 # Install CPI to set node.Spec.ProviderID. 
 kubectl apply -f cpi-vsphere.yaml 
 
+# Verify nodes
+kubectl get nodes
+
+# Check cluster status
+export KUBECONFIG=
+clusterctl describe cluster  vmware-test -n vmware-test
+
 
 ```
 ...
+
+# Delete cluster
+kubectl delete -f cluster.yaml -n vmware-test
+
 
 Note, if the `Kind` cluster is delete without deleting the content from Cluster.yaml then virtual machine must be deleted manually in vCenter.
 ```
@@ -103,6 +119,15 @@ https://github.com/mologie/talos-vmtoolsd
 
 What about this from vmtoolsd:
 {"error":"rpc error: code = Unavailable desc = connection error: desc = \"transport: authentication handshake failed: x509: certificate signed by unknown authority (possibly because of \\\"x509: Ed25519 verification failure\\\" while trying to verify candidate authority certificate \\\"talos\\\")\"","level":"error","module":"talosapi","msg":"error retrieving hostname"}
+
+
+Important notes about cloud-init and vSphere versions:
+https://kb.vmware.com/s/article/90331
+
+
+Note regarding vSphere versions:
+https://github.com/siderolabs/talos/issues/3143
+
 
 
 Work-a-rounds:
