@@ -41,9 +41,13 @@ kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.sta
 
 kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > cluster-talosconfig
 talosctl config merge cluster-talosconfig
+
+# Work-a-round: Set IP address of control plane
+export IP=192.168.0.TODO
+
 talosctl -n ${IP} version
 
-talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}  --talosconfig=./talosconfig 
+talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}
 
 # Switch kubectl to remote Talos cluster
 export KUBECONFIG=./kubeconfig-remote
@@ -59,11 +63,19 @@ kubectl apply -f ../standard/vmtools.yaml
 # TODO: add to Talos configuration
 kubectl taint nodes -l kubernetes.io/os=linux node.cloudprovider.kubernetes.io/uninitialized=true:NoSchedule
 
+# Label namespaces to allow hostNetwork access
+kubectl label --overwrite ns tigera-operator \
+  pod-security.kubernetes.io/enforce=privileged \
+  pod-security.kubernetes.io/enforce-version=latest
+
 # Install CPI to set node.Spec.ProviderID. 
 kubectl apply -f cpi-vsphere.yaml 
 
+
 # Verify nodes
 kubectl get nodes
+
+
 
 # Check cluster status
 export KUBECONFIG=
