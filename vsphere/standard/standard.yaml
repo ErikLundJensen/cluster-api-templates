@@ -66,6 +66,7 @@ spec:
           urls:
           - https://raw.githubusercontent.com/projectcalico/calico/v3.24.5/manifests/tigera-operator.yaml
           - https://raw.githubusercontent.com/projectcalico/calico/v3.24.5/manifests/custom-resources.yaml
+          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/calico-install.yaml
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
