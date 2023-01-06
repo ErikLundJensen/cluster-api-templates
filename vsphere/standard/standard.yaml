@@ -60,6 +60,45 @@ spec:
           extraKernelArgs:
           - talos.platform=vmware
       - op: add
+        path: /cluster/apiServer/extraArgs
+        value:
+          allow-privileged: "true"
+          anonymous-auth: "True"
+          authentication-token-webhook-version: authentication.k8s.io/v1beta1
+          authorization-mode: Node,RBAC
+          bind-address: "0.0.0.0"
+          kubelet-preferred-address-types: InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP
+          oidc-client-id: QA_SHSE_K8S_T-TEST-SHSE
+          oidc-groups-claim: groups
+          oidc-issuer-url: "https://fedqa.tdcnet.dk"
+          profiling: "False"
+          request-timeout: 1m0s
+      - op: replace
+        path: /cluster/apiServer/certSANs
+        value:
+          # TODO: add IP addresses from pool
+          - vmware-k8s-api.local
+      - op: replace
+        path: /cluster/apiServer/admissionControl
+        value:
+          - name: PodSecurity
+            configuration:
+              apiVersion: pod-security.admission.config.k8s.io/v1alpha1
+              defaults:
+                  audit: restricted
+                  audit-version: latest
+                  enforce: baseline
+                  enforce-version: latest
+                  warn: restricted
+                  warn-version: latest
+              exemptions:
+                namespaces:
+                  - kube-system
+                  - tigera-operator
+                runtimeClasses: []
+                usernames: []
+              kind: PodSecurityConfiguration
+      - op: add
         path: /cluster/network/cni
         value:
           name: custom

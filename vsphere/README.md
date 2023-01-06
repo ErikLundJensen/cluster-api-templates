@@ -30,11 +30,6 @@ kubectl get pods -A
 kubectl apply -f ipam.yaml -n vmware-test
 kubectl apply -f cluster.yaml -n vmware-test
 
-# Not needed if disk is added to vm that is cloned from
-# For each vm attach a writable disk
-# govc vm.disk.change -vm vmware-test-controlplane-${ID} -disk.name disk-1000-0 -size 10G
-# Power off vm to get Talos to pick up the new disk. The controller will power it on again.
-
 # Get config
 export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1`
 kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
@@ -63,14 +58,8 @@ kubectl apply -f ../standard/vmtools.yaml
 # TODO: add to Talos configuration
 kubectl taint nodes -l kubernetes.io/os=linux node.cloudprovider.kubernetes.io/uninitialized=true:NoSchedule
 
-# Label namespaces to allow hostNetwork access
-kubectl label --overwrite ns tigera-operator \
-  pod-security.kubernetes.io/enforce=privileged \
-  pod-security.kubernetes.io/enforce-version=latest
-
 # Install CPI to set node.Spec.ProviderID. 
 kubectl apply -f cpi-vsphere.yaml 
-
 
 # Verify nodes
 kubectl get nodes
