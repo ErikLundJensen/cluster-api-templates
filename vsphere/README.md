@@ -85,29 +85,25 @@ kind delete cluster -n kind-talos-vsphere-poc
 ```
 
 
-
+# Implementation notes
 
 Had to:
 * Convert ova to VM, take a snapshot, convert back to template. Using the same name for the vm and the snapshot.
 * Adding disk to get som writeable storage. The disk should be added to the VM that is used for cloning
 
-Network:
-How to get the IP address of the new VM? and how to send the traffic to the API service?
-
 Using VIP:
-Adding 2 additional control plane nodes resulted in broken connectivity to 192.168.0.11
-The VIP is causing the problem. The same VIP is assigned multiple virtual machines. 
+  Adding 2 additional control plane nodes resulted in broken connectivity to control-plane.
+  The VIP is causing the problem. The same VIP is assigned multiple virtual machines. 
+  kube-vip is replacing haproxy, maybe use BigIP DNS for giving a list of control plane IP addresses with alive check.
+
 Looks like it is problematic to get etcd up an running again after other etcd instances have been removed.
 
-
-
-kube-vip is replacing haproxy, maybe use BigIP DNS for giving a list of control plane IP addresses with alive check.
 
 Network pool:
 https://github.com/spectrocloud/cluster-api-provider-vsphere-static-ip/blob/master/docs/workflow.md
 
 
-the vSphere provider supports IPAM and pool of IP addresses, however, the ClusterAPI does not yet support this. There is a proposal for this:
+the vSphere provider supports IPAM and pool of IP addresses, however, ClusterAPI does support this. See alo:
 https://github.com/kubernetes-sigs/cluster-api/pull/6000
 
 
@@ -131,10 +127,5 @@ https://github.com/siderolabs/talos/issues/3143
 
 
 
-Work-a-rounds:
+Work-a-rounds for local Kind cluster:
 * Added local DNS server to core-dns as Docker subnet 192.168.65.2 does not respond to DNS lookups.
-* 
-
-FAQ:
-
-Delete a vm by deleting both vspheremachine and machine.
