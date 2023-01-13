@@ -1,1 +1,3 @@
 /vsphere/tmp
+vsphere/.DS_Store
+.gitignore

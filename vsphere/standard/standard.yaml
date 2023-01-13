@@ -48,7 +48,7 @@ spec:
   infrastructureTemplate:
     kind: VSphereMachineTemplate
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-    name: ${CLUSTER_NAME}-controlplane
+    name: ${CLUSTER_NAME}-controlplane-${VSPHERE_TEMPLATE}-${REVISION}
   controlPlaneConfig:
     controlplane:
       generateType: controlplane
@@ -109,7 +109,7 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
 metadata:
-  name: ${CLUSTER_NAME}-controlplane
+  name: ${CLUSTER_NAME}-controlplane-${VSPHERE_TEMPLATE}-${REVISION}
   labels:
     cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-controlplane
 spec:
@@ -128,6 +128,8 @@ spec:
         - dhcp4: false
           dhcp6: false
           gateway4: 192.168.0.1
+          nameservers:
+          - 192.168.0.1
           addressesFromPools:
           - apiGroup: ipam.cluster.x-k8s.io
             kind: InClusterIPPool
@@ -173,14 +175,14 @@ spec:
           apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
           kind: TalosConfigTemplate
       infrastructureRef:
-        name: ${CLUSTER_NAME}-workers
+        name: ${CLUSTER_NAME}-workers-${VSPHERE_TEMPLATE}-${REVISION}
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: VSphereMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
 metadata:
-  name: ${CLUSTER_NAME}-workers
+  name: ${CLUSTER_NAME}-workers-${VSPHERE_TEMPLATE}-${REVISION}
   labels:
     cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-worker
 spec:
@@ -199,6 +201,8 @@ spec:
         - dhcp4: false
           dhcp6: false
           gateway4: 192.168.0.1
+          nameservers:
+          - 192.168.0.1
           addressesFromPools:
           - apiGroup: ipam.cluster.x-k8s.io
             kind: InClusterIPPool

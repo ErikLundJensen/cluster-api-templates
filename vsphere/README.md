@@ -31,14 +31,14 @@ kubectl apply -f ipam.yaml -n vmware-test
 kubectl apply -f cluster.yaml -n vmware-test
 
 # Get config
-export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1`
+export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1 | head -1`
 kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
 
 kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > cluster-talosconfig
 talosctl config merge cluster-talosconfig
 
 # Work-a-round: Set IP address of control plane
-export IP=192.168.0.TODO
+export IP=192.168.0.230
 
 talosctl -n ${IP} version
 
@@ -88,8 +88,14 @@ kind delete cluster -n kind-talos-vsphere-poc
 # Implementation notes
 
 Had to:
-* Convert ova to VM, take a snapshot, convert back to template. Using the same name for the vm and the snapshot.
+* Import OVA into content library (got some IO errors, using "Deploy OVF" instead)
+* Convert ova to VM using the same name for the vm and the snapshot - if imported OVA
 * Adding disk to get som writeable storage. The disk should be added to the VM that is used for cloning
+  ```
+  govc vm.disk.change -vm vmware-amd64a -disk.name disk-1000-0 -size 10G
+  ```
+* take a snapshot  (c - did not take snapshot)
+* convert back to template. 
 
 Using VIP:
   Adding 2 additional control plane nodes resulted in broken connectivity to control-plane.
