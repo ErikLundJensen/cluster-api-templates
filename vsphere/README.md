@@ -92,7 +92,7 @@ Had to:
 * Convert ova to VM using the same name for the vm and the snapshot - if imported OVA
 * Adding disk to get som writeable storage. The disk should be added to the VM that is used for cloning
   ```
-  govc vm.disk.change -vm vmware-amd64a -disk.name disk-1000-0 -size 10G
+  govc vm.disk.change -vm vmware-amd64 -disk.name disk-1000-0 -size 10G
   ```
 * take a snapshot  (c - did not take snapshot)
 * convert back to template. 

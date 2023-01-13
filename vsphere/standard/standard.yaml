@@ -45,6 +45,10 @@ metadata:
 spec:
   version: v${KUBERNETES_VERSION}
   replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  rolloutStrategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
   infrastructureTemplate:
     kind: VSphereMachineTemplate
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
