@@ -11,6 +11,7 @@ kubectl apply -f secrets/secret.yaml -n vmware-test
 . ../standard/standard.env
 envsubst < ../standard/ipam.yaml >ipam.yaml
 envsubst < ../standard/standard.yaml >cluster.yaml
+envsubst < ../standard/cpi.yaml >cpi.yaml
 
 clusterctl init --bootstrap talos --control-plane talos --infrastructure vsphere
 
@@ -46,20 +47,24 @@ talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}
 
 # Switch kubectl to remote Talos cluster
 export KUBECONFIG=./kubeconfig-remote
+export IP=192.168.0.230
 talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
 
 # Install vmwtool as DaemonSet to let vSphere Center see the VM detailes like IP address
 rm -f vmtoolsd-secret.yaml 
 talosctl -n ${IP} --endpoints ${IP} config new vmtoolsd-secret.yaml --roles os:admin --talosconfig ./talosconfig
+
+# Wait for API to be ready
+
 kubectl -n kube-system create secret generic talos-vmtoolsd-config   --from-file=talosconfig=./vmtoolsd-secret.yaml
 kubectl apply -f ../standard/vmtools.yaml
 
 # Must set taint before installing vSphere CPI driver.
-# TODO: add to Talos configuration
-kubectl taint nodes -l kubernetes.io/os=linux node.cloudprovider.kubernetes.io/uninitialized=true:NoSchedule
+# TODO: add to Talos configuration to worker nodes !
+#kubectl taint nodes -l kubernetes.io/os=linux node.cloudprovider.kubernetes.io/uninitialized=true:NoSchedule
 
 # Install CPI to set node.Spec.ProviderID. 
-kubectl apply -f cpi-vsphere.yaml 
+kubectl apply -f cpi.yaml 
 
 # Verify nodes
 kubectl get nodes
@@ -135,3 +140,24 @@ https://github.com/siderolabs/talos/issues/3143
 
 Work-a-rounds for local Kind cluster:
 * Added local DNS server to core-dns as Docker subnet 192.168.65.2 does not respond to DNS lookups.
+
+
+Rolling upgrade of control-plane nodes:
+There must be something wrong with the count of control planes:
+```
+NAME                                                         READY  SEVERITY  REASON       SINCE  MESSAGE                                                                        
+Cluster/vmware-test                                          False  Warning   ScalingDown  4s     Scaling down control plane to 824648306132 replicas (actual 4)                  
+├─ClusterInfrastructure - VSphereCluster/vmware-test         True                          24m                                                                                    
+├─ControlPlane - TalosControlPlane/vmware-test-controlplane  False  Warning   ScalingDown  4s     Scaling down control plane to 824648306132 replicas (actual 4)                  
+│ └─4 Machines...                                            True                          21m    See vmware-test-controlplane-4w866, vmware-test-controlplane-jjx5f, ...         
+└─Workers                                                                                                                                                                         
+  └─MachineDeployment/vmware-test-workers                    True                          20m                                                                                    
+    └─2 Machines...                                          True                          20m    See vmware-test-workers-6c87c7cf5d-8f9qb, vmware-test-workers-6c87c7cf5d-dd5td  
+```
+
+
+
+From capi-controller when rolling out new control plane node:
+
+"Failed to parse ProviderID" err="providerID is empty" controller="machine" controllerGroup="cluster.x-k8s.io" controllerKind="Machine" Machine="vmware-test/vmware-test-controlplane-tdj58" namespace="vmware-test" name="vmware-test-controlplane-tdj58" reconcileID=da287709-26be-4877-b6ca-4e6ca5d21112 TalosControlPlane="vmware-test/vmware-test-controlplane" Cluster="vmware-test/vmware-test" providerID="vsphere://4231dacb-b430-b113-f659-5f55c212d58a" Node="talos-c3y-lgt"
+

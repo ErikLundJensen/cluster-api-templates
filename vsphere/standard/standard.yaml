@@ -52,7 +52,7 @@ spec:
   infrastructureTemplate:
     kind: VSphereMachineTemplate
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-    name: ${CLUSTER_NAME}-controlplane-${VSPHERE_TEMPLATE}-${REVISION}
+    name: ${CLUSTER_NAME}-controlplane-${VSPHERE_CONTROL_PLANE_TEMPLATE}-${CONTROL_PLANE_REVISION}
   controlPlaneConfig:
     controlplane:
       generateType: controlplane
@@ -72,15 +72,11 @@ spec:
           authorization-mode: Node,RBAC
           bind-address: "0.0.0.0"
           kubelet-preferred-address-types: InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP
-          oidc-client-id: QA_SHSE_K8S_T-TEST-SHSE
-          oidc-groups-claim: groups
-          oidc-issuer-url: "https://fedqa.tdcnet.dk"
           profiling: "False"
           request-timeout: 1m0s
       - op: replace
         path: /cluster/apiServer/certSANs
         value:
-          # TODO: add IP addresses from pool
           - vmware-k8s-api.local
       - op: replace
         path: /cluster/apiServer/admissionControl
@@ -109,11 +105,20 @@ spec:
           urls:
           - https://raw.githubusercontent.com/projectcalico/calico/v3.24.5/manifests/tigera-operator.yaml
           - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/calico-install.yaml
+      # Add taint to new nodes for VMware Cloud Controller (CPI)
+      - op: add
+        path: /machine/kubelet
+        value:
+          extraConfig:
+            registerWithTaints:
+            - key: node.cloudprovider.kubernetes.io/uninitialized
+              value: "true"
+              effect: NoSchedule
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
 metadata:
-  name: ${CLUSTER_NAME}-controlplane-${VSPHERE_TEMPLATE}-${REVISION}
+  name: ${CLUSTER_NAME}-controlplane-${VSPHERE_CONTROL_PLANE_TEMPLATE}-${CONTROL_PLANE_REVISION}
   labels:
     cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-controlplane
 spec:
@@ -121,7 +126,7 @@ spec:
     spec:
       cloneMode: linkedClone
       datacenter: ${VSPHERE_DATACENTER}
-      datastore: datastore5
+      datastore: ${VSPHERE_CONTROL_PLANE_DATASTORE}
       diskGiB: 10
       additionalDisksGiB:
       - 10
@@ -144,7 +149,7 @@ spec:
       resourcePool: "${VSPHERE_RESOURCE_POOL}"
       server: ${VSPHERE_SERVER}
       storagePolicyName: ""
-      template: ${VSPHERE_TEMPLATE}
+      template: ${VSPHERE_CONTROL_PLANE_TEMPLATE}
       # TODO
       thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
 ---
@@ -179,14 +184,14 @@ spec:
           apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
           kind: TalosConfigTemplate
       infrastructureRef:
-        name: ${CLUSTER_NAME}-workers-${VSPHERE_TEMPLATE}-${REVISION}
+        name: ${CLUSTER_NAME}-workers-${VSPHERE_WORKER_TEMPLATE}-${WORKER_REVISION}
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: VSphereMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate
 metadata:
-  name: ${CLUSTER_NAME}-workers-${VSPHERE_TEMPLATE}-${REVISION}
+  name: ${CLUSTER_NAME}-workers-${VSPHERE_WORKER_TEMPLATE}-${WORKER_REVISION}
   labels:
     cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-worker
 spec:
@@ -194,7 +199,7 @@ spec:
     spec:
       cloneMode: linkedClone
       datacenter: ${VSPHERE_DATACENTER}
-      datastore: datastore5
+      datastore: ${VSPHERE_WORKER_DATASTORE}
       diskGiB: 10
       additionalDisksGiB:
       - 10
@@ -217,7 +222,7 @@ spec:
       resourcePool: "${VSPHERE_RESOURCE_POOL}"
       server: ${VSPHERE_SERVER}
       storagePolicyName: ""
-      template: ${VSPHERE_TEMPLATE}
+      template: ${VSPHERE_WORKER_TEMPLATE}
       # TODO
       thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
 ---

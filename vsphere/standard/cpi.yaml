@@ -190,9 +190,9 @@ spec:
         resources:
           requests:
             cpu: 200m
-        env:
-        - name: SKIP_NODE_DELETION
-          value: "true"
+        #env:
+        #- name: SKIP_NODE_DELETION
+        #  value: "true"
         volumeMounts:
         - mountPath: /etc/cloud
           name: vsphere-config-volume
@@ -203,12 +203,15 @@ spec:
       - effect: NoSchedule
         key: node.cloudprovider.kubernetes.io/uninitialized
         value: "true"
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/master
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+        operator: Exists
+      - key: node.kubernetes.io/not-ready
+        effect: NoSchedule
+        operator: Exists
       - effect: NoSchedule
         key: node-role.kubernetes.io/control-plane
-      - effect: NoSchedule
-        key: node.kubernetes.io/not-ready
+        operator: Exists
       volumes:
       - configMap:
           name: vsphere-cloud-config
