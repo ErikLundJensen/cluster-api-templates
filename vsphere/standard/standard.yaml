@@ -34,8 +34,7 @@ spec:
     kind: Secret
     name: ${CLUSTER_NAME}
   server: ${VSPHERE_SERVER}
-  # TODO
-  thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
+  thumbprint: ${VSPHERE_TLS_THUMBPRINT}
 ---
 ## Control plane configs
 apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
@@ -150,8 +149,7 @@ spec:
       server: ${VSPHERE_SERVER}
       storagePolicyName: ""
       template: ${VSPHERE_CONTROL_PLANE_TEMPLATE}
-      # TODO
-      thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
+      thumbprint: ${VSPHERE_TLS_THUMBPRINT}
 ---
 ## Worker configs
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -223,8 +221,7 @@ spec:
       server: ${VSPHERE_SERVER}
       storagePolicyName: ""
       template: ${VSPHERE_WORKER_TEMPLATE}
-      # TODO
-      thumbprint: 7F:9B:D5:53:98:A5:24:48:EC:DE:68:91:54:AD:23:31:34:65:CD:80
+      thumbprint: ${VSPHERE_TLS_THUMBPRINT}
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 kind: TalosConfigTemplate
