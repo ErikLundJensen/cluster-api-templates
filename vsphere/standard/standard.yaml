@@ -76,7 +76,7 @@ spec:
       - op: replace
         path: /cluster/apiServer/certSANs
         value:
-          - vmware-k8s-api.local
+          - ${CONTROL_PLANE_ENDPOINT}
       - op: replace
         path: /cluster/apiServer/admissionControl
         value:
@@ -232,6 +232,16 @@ spec:
     spec:
       generateType: join
       talosVersion: ${TALOS_VERSION}
+      configPatches:
+      # Add taint to new nodes for VMware Cloud Controller (CPI)
+      - op: add
+        path: /machine/kubelet
+        value:
+          extraConfig:
+            registerWithTaints:
+            - key: node.cloudprovider.kubernetes.io/uninitialized
+              value: "true"
+              effect: NoSchedule
 ---
 ## Health check for workers
 apiVersion: cluster.x-k8s.io/v1alpha4

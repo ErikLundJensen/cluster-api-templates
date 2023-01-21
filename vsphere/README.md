@@ -41,7 +41,7 @@ talosctl config merge cluster-talosconfig
 # Work-a-round: Set IP address of control plane
 export IP=192.168.0.230
 
-talosctl -n ${IP} version
+talosctl -n ${IP} --endpoints ${IP} version
 
 talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}
 
@@ -58,10 +58,6 @@ talosctl -n ${IP} --endpoints ${IP} config new vmtoolsd-secret.yaml --roles os:a
 
 kubectl -n kube-system create secret generic talos-vmtoolsd-config   --from-file=talosconfig=./vmtoolsd-secret.yaml
 kubectl apply -f ../standard/vmtools.yaml
-
-# Must set taint before installing vSphere CPI driver.
-# TODO: add to Talos configuration to worker nodes !
-#kubectl taint nodes -l kubernetes.io/os=linux node.cloudprovider.kubernetes.io/uninitialized=true:NoSchedule
 
 # Install CPI to set node.Spec.ProviderID. 
 kubectl apply -f cpi.yaml 

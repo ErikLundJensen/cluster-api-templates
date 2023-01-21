@@ -1,7 +1,22 @@
+# In a non-sandbox/demo setup the ConfigMap and Secret should not be part of this file
 apiVersion: v1
-kind: ServiceAccount
+data:
+  vsphere.conf: |
+    global:
+      secretName: cloud-provider-vsphere-credentials
+      secretNamespace: kube-system
+      thumbprint: '${VSPHERE_TLS_THUMBPRINT}'
+    vcenter:
+      ${VSPHERE_SERVER}:
+        datacenters:
+        - '${VSPHERE_DATACENTER}'
+        secretName: cloud-provider-vsphere-credentials
+        secretNamespace: kube-system
+        server: '${VSPHERE_SERVER}'
+        thumbprint: '${VSPHERE_TLS_THUMBPRINT}'
+kind: ConfigMap
 metadata:
-  name: cloud-controller-manager
+  name: vsphere-cloud-config
   namespace: kube-system
 ---
 apiVersion: v1
@@ -13,6 +28,12 @@ stringData:
   ${VSPHERE_SERVER}.password: ${VSPHERE_PASSWORD}
   ${VSPHERE_SERVER}.username: ${VSPHERE_USERNAME}
 type: Opaque
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloud-controller-manager
+  namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -112,26 +133,6 @@ subjects:
 - kind: User
   name: cloud-controller-manager
 ---
-apiVersion: v1
-data:
-  vsphere.conf: |
-    global:
-      secretName: cloud-provider-vsphere-credentials
-      secretNamespace: kube-system
-      thumbprint: '${VSPHERE_TLS_THUMBPRINT}'
-    vcenter:
-      ${VSPHERE_SERVER}:
-        datacenters:
-        - '${VSPHERE_DATACENTER}'
-        secretName: cloud-provider-vsphere-credentials
-        secretNamespace: kube-system
-        server: '${VSPHERE_SERVER}'
-        thumbprint: '${VSPHERE_TLS_THUMBPRINT}'
-kind: ConfigMap
-metadata:
-  name: vsphere-cloud-config
-  namespace: kube-system
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -190,9 +191,6 @@ spec:
         resources:
           requests:
             cpu: 200m
-        #env:
-        #- name: SKIP_NODE_DELETION
-        #  value: "true"
         volumeMounts:
         - mountPath: /etc/cloud
           name: vsphere-config-volume
