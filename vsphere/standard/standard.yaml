@@ -62,6 +62,10 @@ spec:
         value:
           extraKernelArgs:
           - talos.platform=vmware
+      - op: replace
+        path: machines/controlPlane
+        value:
+          nodeDrainTimeout: ${NODE_DRAIN_TIMEOUT}
       - op: add
         path: /cluster/apiServer/extraArgs
         value:

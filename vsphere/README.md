@@ -71,6 +71,8 @@ kubectl get nodes
 export KUBECONFIG=
 clusterctl describe cluster  vmware-test -n vmware-test
 
+# Check the kernel log from a node
+talosctl --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP} dmesg
 
 ```
 ...
@@ -117,6 +119,11 @@ https://github.com/kubernetes-sigs/cluster-api/pull/6000
 
 
 TODO:
+
+* Add tolerations to Calico https://github.com/projectcalico/calico/issues/7070
+* Setup timeout for waiting for pods to be drained
+
+
 Build our own image of `ghcr.io/mologie/talos-vmtoolsd-unstable:latest` from
 https://github.com/mologie/talos-vmtoolsd
 
