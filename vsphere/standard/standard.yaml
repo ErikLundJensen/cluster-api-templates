@@ -115,7 +115,7 @@ spec:
         value:
           name: custom
           urls:
-          - https://raw.githubusercontent.com/projectcalico/calico/v3.24.6/manifests/tigera-operator.yaml
+          - https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml
           - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/calico-install.yaml
       # Add taint to new nodes for VMware Cloud Controller (CPI)
       - op: add
