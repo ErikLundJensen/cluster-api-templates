@@ -57,11 +57,20 @@ spec:
       generateType: controlplane
       talosVersion: ${TALOS_VERSION}
       configPatches:
+      - op: add
+        path: /machine/features/kubernetesTalosAPIAccess
+        value:
+          enabled: true
+          allowedRoles:
+          - os:reader
+          allowedKubernetesNamespaces:
+          - kube-system
       - op: replace
         path: /machine/install
         value:
           extraKernelArgs:
-          - talos.platform=vmware
+          - "talos.platform=vmware"
+          - "talos.unified_cgroup_hierarchy=0"
 #      - op: replace
 #        path: machines/controlPlane
 #        value:
@@ -117,6 +126,13 @@ spec:
             - key: node.cloudprovider.kubernetes.io/uninitialized
               value: "true"
               effect: NoSchedule
+      - op: add
+        path: /cluster/extraManifests
+        value:
+        - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/standard/vm-tools.yaml
+        - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/standard/cpi.yaml
+      
+    
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VSphereMachineTemplate

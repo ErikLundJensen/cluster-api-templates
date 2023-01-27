@@ -50,21 +50,8 @@ export KUBECONFIG=./kubeconfig-remote
 export IP=192.168.0.230
 talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
 
-# Install vmwtool as DaemonSet to let vSphere Center see the VM detailes like IP address
-rm -f vmtoolsd-secret.yaml 
-talosctl -n ${IP} --endpoints ${IP} config new vmtoolsd-secret.yaml --roles os:admin --talosconfig ./talosconfig
-
-# Wait for API to be ready
-
-kubectl -n kube-system create secret generic talos-vmtoolsd-config   --from-file=talosconfig=./vmtoolsd-secret.yaml
-kubectl apply -f ../standard/vmtools.yaml
-
-# Install CPI to set node.Spec.ProviderID. 
-kubectl apply -f cpi.yaml 
-
 # Verify nodes
 kubectl get nodes
-
 
 
 # Check cluster status
@@ -112,9 +99,8 @@ Network pool:
 https://github.com/spectrocloud/cluster-api-provider-vsphere-static-ip/blob/master/docs/workflow.md
 
 
-the vSphere provider supports IPAM and pool of IP addresses, however, ClusterAPI does support this. See alo:
+the vSphere provider supports IPAM and pool of IP addresses,See also:
 https://github.com/kubernetes-sigs/cluster-api/pull/6000
-
 
 
 
@@ -141,7 +127,7 @@ https://github.com/siderolabs/talos/issues/3143
 
 
 
-Work-a-rounds for local Kind cluster:
+Work-a-rounds for local KinD cluster:
 * Added local DNS server to core-dns as Docker subnet 192.168.65.2 does not respond to DNS lookups.
 
 
@@ -157,10 +143,4 @@ Cluster/vmware-test                                          False  Warning   Sc
   └─MachineDeployment/vmware-test-workers                    True                          20m                                                                                    
     └─2 Machines...                                          True                          20m    See vmware-test-workers-6c87c7cf5d-8f9qb, vmware-test-workers-6c87c7cf5d-dd5td  
 ```
-
-
-
-From capi-controller when rolling out new control plane node:
-
-"Failed to parse ProviderID" err="providerID is empty" controller="machine" controllerGroup="cluster.x-k8s.io" controllerKind="Machine" Machine="vmware-test/vmware-test-controlplane-tdj58" namespace="vmware-test" name="vmware-test-controlplane-tdj58" reconcileID=da287709-26be-4877-b6ca-4e6ca5d21112 TalosControlPlane="vmware-test/vmware-test-controlplane" Cluster="vmware-test/vmware-test" providerID="vsphere://4231dacb-b430-b113-f659-5f55c212d58a" Node="talos-c3y-lgt"
 
