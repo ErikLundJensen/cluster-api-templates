@@ -11,7 +11,7 @@ kubectl apply -f secrets/secret.yaml -n vmware-test
 . ../standard/standard.env
 envsubst < ../standard/ipam.yaml >ipam.yaml
 envsubst < ../standard/standard.yaml >cluster.yaml
-envsubst < ../standard/cpi.yaml >cpi.yaml
+envsubst < ../standard/cpi-secrets.yaml >cpi-secrets.yaml
 
 clusterctl init --bootstrap talos --control-plane talos --infrastructure vsphere
 
@@ -49,6 +49,10 @@ talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}
 export KUBECONFIG=./kubeconfig-remote
 export IP=192.168.0.230
 talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
+
+# Add secret and configuration for CPI
+kubectl appply -f cpi-secrets.yaml
+
 
 # Verify nodes
 kubectl get nodes
