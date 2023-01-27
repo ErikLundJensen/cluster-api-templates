@@ -47,7 +47,7 @@ spec:
               readOnly: true
           env:
             - name: TALOS_CONFIG_PATH
-              value: /etc/talos-vmtoolsd/talosconfig
+              value: /etc/talos-vmtoolsd/config
             - name: TALOS_HOST
               valueFrom:
                 fieldRef:
