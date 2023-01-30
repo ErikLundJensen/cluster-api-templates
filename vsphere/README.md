@@ -51,7 +51,7 @@ export IP=192.168.0.230
 talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
 
 # Add secret and configuration for CPI
-kubectl appply -f cpi-secrets.yaml
+kubectl apply -f cpi-secrets.yaml
 
 
 # Verify nodes
