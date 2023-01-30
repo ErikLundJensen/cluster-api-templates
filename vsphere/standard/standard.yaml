@@ -70,7 +70,6 @@ spec:
         value:
           extraKernelArgs:
           - "talos.platform=vmware"
-          - "talos.unified_cgroup_hierarchy=0"
 #      - op: replace
 #        path: machines/controlPlane
 #        value:
@@ -106,8 +105,6 @@ spec:
               exemptions:
                 namespaces:
                   - kube-system
-                  - tigera-operator
-                  - calico-system
                 runtimeClasses: []
                 usernames: []
               kind: PodSecurityConfiguration
@@ -116,7 +113,7 @@ spec:
         value:
           name: custom
           urls:
-          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/cilium.yaml
+          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/cilium-v1.11.2.yaml
       # Add taint to new nodes for VMware Cloud Controller (CPI)
       - op: add
         path: /machine/kubelet
