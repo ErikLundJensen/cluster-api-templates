@@ -5768,7 +5768,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: tigera-operator
-  namespace: tigera-opeartor
+  namespace: tigera-operator
 ---
 # Source: tigera-operator/templates/tigera-operator/02-role-tigera-operator.yaml
 # Permissions required when running the operator for a Calico cluster.
@@ -5989,7 +5989,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: tigera-operator
-  namespace: tigera-opeartor
+  namespace: tigera-operator
 roleRef:
   kind: ClusterRole
   name: tigera-operator
@@ -6000,7 +6000,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tigera-operator
-  namespace: tigera-opeartor
+  namespace: tigera-operator
   labels:
     k8s-app: tigera-operator
 spec:

@@ -35,8 +35,8 @@ kubectl apply -f cluster.yaml -n vmware-test
 export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1 | head -1`
 kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
 
-kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > cluster-talosconfig
-talosctl config merge cluster-talosconfig
+export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1 | head -1`
+kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
 
 # Work-a-round: Set IP address of control plane
 export IP=192.168.0.230
