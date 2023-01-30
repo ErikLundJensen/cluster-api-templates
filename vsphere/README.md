@@ -22,13 +22,13 @@ helm repo add cilium https://helm.cilium.io/
 helm repo update
 
 helm template cilium cilium/cilium \
-    --version 1.12.6 \
+    --version 1.11.2 \
     --namespace kube-system \
     --set ipam.mode=kubernetes \
     --set kubeProxyReplacement=strict \
     --set k8sServiceHost="${KUBERNETES_API_SERVER_ADDRESS}" \
     --set k8sServicePort="${KUBERNETES_API_SERVER_PORT}" \
-    --set enableXTSocketFallback=false > ../cni/cilium.yaml
+    --set enableXTSocketFallback=false > ../cni/cilium-v1.11.2.yaml
 
 # Push cilium to Git repo
 
