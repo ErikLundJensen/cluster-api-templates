@@ -107,6 +107,7 @@ spec:
                 namespaces:
                   - kube-system
                   - tigera-operator
+                  - calico-system
                 runtimeClasses: []
                 usernames: []
               kind: PodSecurityConfiguration
@@ -115,8 +116,7 @@ spec:
         value:
           name: custom
           urls:
-          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/tigera-operator-v3.23.4.yaml
-          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/calico-install.yaml
+          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/cilium.yaml
       # Add taint to new nodes for VMware Cloud Controller (CPI)
       - op: add
         path: /machine/kubelet

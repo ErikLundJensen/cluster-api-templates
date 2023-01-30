@@ -1,3 +1,5 @@
+Prepare Cilium manifests
+
 bootstrap cluster using a local `Kind` cluster
 
 ```
@@ -12,6 +14,24 @@ kubectl apply -f secrets/secret.yaml -n vmware-test
 envsubst < ../standard/ipam.yaml >ipam.yaml
 envsubst < ../standard/standard.yaml >cluster.yaml
 envsubst < ../standard/cpi-secrets.yaml >cpi-secrets.yaml
+
+export KUBERNETES_API_SERVER_ADDRESS=${CONTROL_PLANE_ENDPOINT}
+export KUBERNETES_API_SERVER_PORT=6443
+
+helm repo add cilium https://helm.cilium.io/
+helm repo update
+
+helm template cilium cilium/cilium \
+    --version 1.12.6 \
+    --namespace kube-system \
+    --set ipam.mode=kubernetes \
+    --set kubeProxyReplacement=strict \
+    --set k8sServiceHost="${KUBERNETES_API_SERVER_ADDRESS}" \
+    --set k8sServicePort="${KUBERNETES_API_SERVER_PORT}" \
+    --set enableXTSocketFallback=false > ../cni/cilium.yaml
+
+# Push cilium to Git repo
+
 
 clusterctl init --bootstrap talos --control-plane talos --infrastructure vsphere
 
@@ -35,8 +55,8 @@ kubectl apply -f cluster.yaml -n vmware-test
 export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1 | head -1`
 kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
 
-export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1 | head -1`
-kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
+kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > cluster-talosconfig
+talosctl config merge cluster-talosconfig
 
 # Work-a-round: Set IP address of control plane
 export IP=192.168.0.230
@@ -52,6 +72,7 @@ talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
 
 # Add secret and configuration for CPI
 kubectl apply -f cpi-secrets.yaml
+kubectl apply -f secrets/cilium-secrets.yaml
 
 
 # Verify nodes
