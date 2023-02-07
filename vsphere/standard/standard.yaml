@@ -152,9 +152,9 @@ spec:
         devices:
         - dhcp4: false
           dhcp6: false
-          gateway4: 192.168.0.1
+          gateway4: 172.16.42.1
           nameservers:
-          - 192.168.0.1
+          - 172.16.42.1
           addressesFromPools:
           - apiGroup: ipam.cluster.x-k8s.io
             kind: InClusterIPPool
@@ -224,9 +224,9 @@ spec:
         devices:
         - dhcp4: false
           dhcp6: false
-          gateway4: 192.168.0.1
+          gateway4: 172.16.42.1
           nameservers:
-          - 192.168.0.1
+          - 172.16.42.1
           addressesFromPools:
           - apiGroup: ipam.cluster.x-k8s.io
             kind: InClusterIPPool

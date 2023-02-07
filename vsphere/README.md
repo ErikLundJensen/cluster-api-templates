@@ -1,6 +1,11 @@
-Prepare Cilium manifests
+## Prepare vCenter
 
-bootstrap cluster using a local `Kind` cluster
+Create datacenter e.g. "dc1"
+Create a folder (e.g. "vmware-test") for "VM and Templates" in the datacenter
+Import the ESXi host into vCenter
+
+
+# Prepare environment variables and render templates
 
 ```
 # Add token to avoid GitHub throttling  
@@ -17,7 +22,10 @@ envsubst < ../standard/cpi-secrets.yaml >cpi-secrets.yaml
 
 export KUBERNETES_API_SERVER_ADDRESS=${CONTROL_PLANE_ENDPOINT}
 export KUBERNETES_API_SERVER_PORT=6443
+```
+## Prepare Cilium manifests
 
+```
 helm repo add cilium https://helm.cilium.io/
 helm repo update
 
@@ -28,11 +36,16 @@ helm template cilium cilium/cilium \
     --set kubeProxyReplacement=strict \
     --set k8sServiceHost="${KUBERNETES_API_SERVER_ADDRESS}" \
     --set k8sServicePort="${KUBERNETES_API_SERVER_PORT}" \
-    --set enableXTSocketFallback=false > ../cni/cilium-v1.11.2.yaml
+    --set enableXTSocketFallback=false \
+    --set hubble.listenAddress=":4244" \
+    --set hubble.relay.enabled=true \
+    --set hubble.ui.enabled=true > ../cni/cilium-v1.11.2.yaml
 
-# Push cilium to Git repo
+```
+Push cilium to Git repo
 
-
+# Bootstrap cluster using a local `KinD` cluster
+```
 clusterctl init --bootstrap talos --control-plane talos --infrastructure vsphere
 
 # Have to init kubeadm to avoid vSphere errors. Kubeadm controller is not used.
@@ -59,7 +72,7 @@ kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='
 talosctl config merge cluster-talosconfig
 
 # Work-a-round: Set IP address of control plane
-export IP=192.168.0.230
+export IP=172.16.42.230
 
 talosctl -n ${IP} --endpoints ${IP} version
 
@@ -67,7 +80,7 @@ talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}
 
 # Switch kubectl to remote Talos cluster
 export KUBECONFIG=./kubeconfig-remote
-export IP=192.168.0.230
+export IP=172.16.42.230
 talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
 
 # Add secret and configuration for CPI
@@ -96,6 +109,52 @@ kubectl delete -f cluster.yaml -n vmware-test
 Note, if the `Kind` cluster is delete without deleting the content from Cluster.yaml then virtual machine must be deleted manually in vCenter.
 ```
 kind delete cluster -n kind-talos-vsphere-poc
+
+```
+
+###############
+#
+# PoC - migration from Kubeadm cluster to Talos
+#
+#################
+```
+kind create cluster -n kind-kubeadm-vsphere-poc
+kubectl create ns source
+kubectl apply -f secrets/source-secret.yaml -n source
+. secrets/envsecrets.sh
+. ../kubeadm/kubeadm.env
+envsubst < ../kubeadm/ipam.yaml >ipam.yaml
+envsubst < ../kubeadm/cpi-secrets.yaml >cpi-secrets.yaml
+envsubst < ../kubeadm/standard.yaml >cluster.yaml
+
+export KUBERNETES_API_SERVER_ADDRESS=${CONTROL_PLANE_ENDPOINT}
+export KUBERNETES_API_SERVER_PORT=6443
+
+#clusterctl generate ${CLUSTER_NAME} \
+#   --infrastructure vsphere \
+#    --kubernetes-version ${KUBERNETES_VERSION} \
+#    --control-plane-machine-count 3 \
+#    --worker-machine-count 2 \
+#    --from ../kubeadm/source.yaml > cluster.yaml
+
+clusterctl init --bootstrap kubeadm --control-plane kubeadm --infrastructure vsphere
+clusterctl init --ipam in-cluster
+
+# See that pods are ready
+kubectl get pods -A
+
+# Create the cluster
+kubectl apply -f ipam.yaml -n source
+kubectl apply -f cluster.yaml -n source
+
+
+kubectl get secret/source-kubeconfig -o json -n source | jq -r .data.value  | base64 --decode > ./source.kubeconfig
+
+# For remote cluster:
+export KUBECONFIG=source.kubeconfig
+kubectl apply -f cpi-secrets.yaml
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
 
 ```
 
