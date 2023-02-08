@@ -1,0 +1,349 @@
+---
+## Cluster configs
+
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: ${CLUSTER_NAME}
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["10.240.0.0/16"]
+    services:
+      cidrBlocks: ["10.96.128.0/12"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: VSphereCluster
+    name: ${CLUSTER_NAME}
+  controlPlaneRef:
+    kind: TalosControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    name: ${CLUSTER_NAME}-controlplane
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VSphereCluster
+metadata:
+  name: ${CLUSTER_NAME}
+  labels:
+    cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-controlplane
+spec:
+  controlPlaneEndpoint:
+    host: ${CONTROL_PLANE_ENDPOINT}
+    port: 6443
+  identityRef:
+    kind: Secret
+    name: ${CLUSTER_NAME}
+  server: ${VSPHERE_SERVER}
+  thumbprint: ${VSPHERE_TLS_THUMBPRINT}
+---
+## Control plane configs
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+kind: TalosControlPlane
+metadata:
+  name: ${CLUSTER_NAME}-controlplane
+spec:
+  version: v${KUBERNETES_VERSION}
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  rolloutStrategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  infrastructureTemplate:
+    kind: VSphereMachineTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: ${CLUSTER_NAME}-controlplane-${VSPHERE_CONTROL_PLANE_TEMPLATE}-${CONTROL_PLANE_REVISION}
+  controlPlaneConfig:
+    controlplane:
+      generateType: controlplane
+      talosVersion: ${TALOS_VERSION}
+      configPatches:
+      - op: replace
+        path: /machine/token
+        value: mobmsk.hsl02361pohacaja # The `token` is used by a machine to join the PKI of the cluster.
+      - op: replace
+        path: /machine/ca
+        value:
+          # The root certificate authority of the PKI.
+          crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJQekNCOHFBREFnRUNBaEVBOVJvM3JERGhxMEtMS2N5Rkp5c3lhREFGQmdNclpYQXdFREVPTUF3R0ExVUUKQ2hNRmRHRnNiM013SGhjTk1qTXdNakEzTVRFek9UQTNXaGNOTXpNd01qQTBNVEV6T1RBM1dqQVFNUTR3REFZRApWUVFLRXdWMFlXeHZjekFxTUFVR0F5dGxjQU1oQURNOXErQWR1bjV5VFFiNTFTeE0xZlkyQUlQSitpa0NaL0NKCjZ1SEtOK2FLbzJFd1h6QU9CZ05WSFE4QkFmOEVCQU1DQW9Rd0hRWURWUjBsQkJZd0ZBWUlLd1lCQlFVSEF3RUcKQ0NzR0FRVUZCd01DTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRktUdHpZM25sZ3ZHd3Brcgo3WEJRWlhKbXR3NFBNQVVHQXl0bGNBTkJBRWtHRmxvaG50UHBMbW41Q1BSaGlybFRnSHJVU2MvYlJ1V0Zna0VDCmJxMTVON1RvNGo1M2VjU2xlZWFoK1FCZzgxUjlVTWtJSFAyaGphTU5uamdoZmdVPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+          key: LS0tLS1CRUdJTiBFRDI1NTE5IFBSSVZBVEUgS0VZLS0tLS0KTUM0Q0FRQXdCUVlESzJWd0JDSUVJSysweFcva3kzR0NQU2ZyN2tkdGJYQ0t0NzVwb0Izd1FGdVBFSVZEUHNqNwotLS0tLUVORCBFRDI1NTE5IFBSSVZBVEUgS0VZLS0tLS0K
+      - op: replace
+        path: /cluster/id
+        value: np_niFGAQfCsPMNW-UzXaqxCxHAamOu9sddXWLMvB7E= # Globally unique identifier for this cluster (base64 encoded random 32 bytes).
+      - op: replace
+        path: /cluster/secret
+        value: /M3QLTfxnLlYYXdwKcBSzWpVpszXnjCu0v4I7QmYJ+k= # Shared secret of cluster (base64 encoded random 32 bytes).
+      - op: replace
+        path: /cluster/token
+        value: alv2o1.1sdaox7rqz384fcv # The `token` is used by a machine to join the PKI of the cluster.
+      - op: replace
+        path: /cluster/aescbcEncryptionSecret
+        value: n7rvjyOief+KgMokN9djrszFZFGnFma6+Nz98pe/VhQ= # The key used for the [encryption of secret data at rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/).
+      - op: replace
+        path: /cluster/ca
+        value:
+          crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM2akNDQWRLZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJek1ESXdOekE0TlRRME5sb1hEVE16TURJd05EQTROVGswTmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBS2RiClhnUGhwQkNrWUN0SzhjVmxuUGJ2bElYM0diQ01YdkUzOC9Wd1dMd2ZmZzllaFppQ3E0cWtLdzF3ZE14ZVlOWlEKbnZuK01Sa1F0NWtqZGp6Nnc5blNuRUZtaEZQTnovdFZWdHd6blVzb0ptaWdQalBBS2JPbzhEejFOSTZKVFV1cQpSY2lsMjNXbUN1emt3WjlJUnoyV24vbXh1b2VhQ01mZk50OFh1OW91TjNGaEhHR1FjL3FEVGxaMmFRajluUXdSCmVSN0srMm1uYjk5ZW5BeDJmR1J5YVJwSFA4cFQrd0Z0OFhISmkyQ2hQcnJuS21nR0hKeDVQSWliYWRBSTBEcmgKVWg4Z0l3QXdIbWM3TXU3SWw3OUhZZG1FemVwSlVKU1pJbjZmbVdjd1RKMFVvWkJYNkh6cmZhWVArT2FuNHFJYwp5bmU0blZlS2dML1pmVkdldTJNQ0F3RUFBYU5GTUVNd0RnWURWUjBQQVFIL0JBUURBZ0trTUJJR0ExVWRFd0VCCi93UUlNQVlCQWY4Q0FRQXdIUVlEVlIwT0JCWUVGRU83TlBDOVdQYndyZVpXdnhQVkljQy84WTIwTUEwR0NTcUcKU0liM0RRRUJDd1VBQTRJQkFRQnk5dTFLZStralpabUxEQlhteWt5ZUduNm15cjBObTdPeDBhRlk3bllzelRWMQpqcHBBbnRjWTI0RDdPTVowYUlWUFBCYzZCUHcxT0RhNnp0TXorLy9jTlQ5cGxOLzJtazhha0NwZHE3NW5tTFAxCmtaV3lVei9jQWpKNGI3TDFtM2ppNnd0WitmWDdickM2MUZ1TUZhTk1XRVhvZjRtTHdxSnlXR3loZTNIWEpxNDgKZEo2UUdiU0dDK21iRzlHa2VZdlhJQk54V3RQM1JVNjc1QW1YUmoyUVZZakJGSU5YaTRhcjh2U21CdUdrQjhvZAplOHVDZ0J2RVV4Zm85NFZpeUVLWnhTNWxUdU5RZWI3ZzBYMkhzME9veTgySGthMlRGWjJ4VUdneFBSVEJWRGxXCkhwUU1pTFhBT1dSWVdiUlJpSXkya0dLMnpoVDVaUnBLZ1BPRW5ZMXUKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+          key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBcDF0ZUErR2tFS1JnSzByeHhXV2M5dStVaGZjWnNJeGU4VGZ6OVhCWXZCOStEMTZGCm1JS3JpcVFyRFhCMHpGNWcxbENlK2Y0eEdSQzNtU04yUFByRDJkS2NRV2FFVTgzUCsxVlczRE9kU3lnbWFLQSsKTThBcHM2andQUFUwam9sTlM2cEZ5S1hiZGFZSzdPVEJuMGhIUFphZitiRzZoNW9JeDk4MjN4ZTcyaTQzY1dFYwpZWkJ6K29OT1ZuWnBDUDJkREJGNUhzcjdhYWR2MzE2Y0RIWjhaSEpwR2tjL3lsUDdBVzN4Y2NtTFlLRSt1dWNxCmFBWWNuSGs4aUp0cDBBalFPdUZTSHlBakFEQWVaenN5N3NpWHYwZGgyWVRONmtsUWxKa2lmcCtaWnpCTW5SU2gKa0Zmb2ZPdDlwZy80NXFmaW9oektkN2lkVjRxQXY5bDlVWjY3WXdJREFRQUJBb0lCQVFDQ2cyRjFPM0c4UE1SMgozckpmazlmdVIzYVhadFhVOWhOUW9LY1RZSE1DK3JoUGVoSkxscFA2d2Y2Rk00OFNsZ09FLzBpTGd5MTg4Nm1LCnRyb040aTM4WUIvVmJRS0RiSHptNzIyV3VuWFBWOWRrUHB0anRsZVBNWTl3cW5VN04xNWRSTU81TDRkUFg1Y2oKbVY1YVBuNjRUQkFrSlBObnJydHNTK281M3dOenFOWXRjTUp0ZmZ4ZkhpeUMyajE2ZUZZUFk0cUljMndhZ1NLVwpIenFjR3JUQXVYajRkY1ZnbGxmc01oby9zU1drSklRVmgrWUFjS2tnVVFHSlpQSWdoSlp3Q0ZxU3QyTTIvcFFpCkMyZnVYQ2tPMnBMWjdWeGxiKzFPazB0M3kzOGd4KzEwN3hnWnNzZHNJZzVNbE5RTURTVlk5RHJ2TDNqRU0zODAKaVFFcWhmVkpBb0dCQU1leFF5RjhkeHB5WmZEQS80TnZ5eEw0OG9ZbXVlMFBIQUM2cHRwRytYZFNPV2NhNzRBcQpKNW4ydjk4eXl0VmUyb3J4Nk0vbjJVS2VaSnJtekE4Tk4rZGZjN3FURS8zMVA0cVhkNFplVXRtYWkyT3pJc0hlCjBYcU0wM0orUTNjY0dLVDZjSVVVVFMzWGVydkFNRzZESmlFdXI4ZVhKM1hhODRqWStNcE5ZalR2QW9HQkFOYUwKK1lrem0wTGxYTnJ5VDRwT3dFTjdDRmJja1diQzNTZG8zcTYwdFByZ081THFVNk1WU2JRaHR6Mkhib1hsSFV6UgpINFBKa1R5eis3VXpLVEVNcnd0czdEZ1JKM3FIRzBIeXJjQVBZOXZmQ3RXWnNSNzRMVjF1K2thWDl1dGhISHR5CmpZYWs3aUN0azlqOXBSTFNZTUZJKzRVa1Erck9NczJsaDlGYm15ak5Bb0dCQUoxWkY4UnpCb1pZVGVyK3FGY3cKNTVyemZtWW1iYXBWbFlNZGtBdStrU05zTHI4SGdtQkMxeUdDUkgzaXorQ0E5VU0yaW5RSUJERnlEV1BoS0RsVAorUkRmTFpsOSt1ckpMR0JRS1dZL1BKa3FKVnRSODdrL2tXQTNSd1dZYUNDYWl2QzBSYVVXOGhtRkNMaVlINUYwCjFiNmZ3dkpLTUZXMVNPQXoxeFhSRStrUkFvR0FUY0p6MGNkemlYNXA5aTBHcVNFN3kvbG1uMXpZRWora09pbG4KTkRqb3MxamNIclp4VTlWZVhqd3VGczNrUUFFM2FtVU5JQTNKWncvd3RjN3lLZ1huMTZORnhsaHBUNTV5UWFlOApVN1VBUTJ1R21MNVlsTm5zVDBYdXpmRThIRG1aUWlEVnJLeFFabVdqQlcyQkM5NVdGUmZubVd6NGRMMEJhc21JCi9WZFBXQzBDZ1lFQWsxQ1RZZU5CcDkxWVZ3M0lrZDhHOGF4M0tLa041NGgwZmxRZytzcWJ3RTBDTkpKZlFOeG8KUHZHVDdFdFB0QW5xTldpWE1YemFOSXIyV2VXUGJtV0c5Vi84NmNCRmwyUnZlamJFWjZyUTJxRzk2dnBHSDZ4WAo2UkxrSW56L2gwbzZaOFB2bFVSMUFCYjh1eVlvS1BiaC9kdFkrK0tXbWs1OGExd1BnemdJc0NrPQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+      - op: replace
+        path: /cluster/aggregatorCA
+        value:
+          # The base64 encoded aggregator certificate authority used by Kubernetes for front-proxy certificate generation.
+          crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM2akNDQWRLZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJek1ESXdOekE0TlRRME4xb1hEVE16TURJd05EQTROVGswTjFvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTC9JCmEzcFRUUWxsN0ExYjgwRHhoSGs2MWRzd0owa2Qzd3puQXh2eUM3Z21MbGpDODRIWUFoUUh3NzIwQmNZbjZDd0wKQThyQjIraEo2Q0h6TjAyNTdOUDN0SEJ1Z3FJeml2dFNubzVUcVFUaFY2b0F1RUFRRTZVb1QyYnRZRXRPdWs5RgorQXBkUmdoUEVYVUtqRkxZYm5aaEZDODB6Qjh0SERYSU1NYitnUWxrZW1EZkRpWWZZaGlRT2FmeDVTSlF4Yk8yCkt2Zk5pcUdiQSttMGc1UW9aY2VXNFJaaFBBU2dCOUQwaEdURHowRSt5N1FiUkIxUFViZ3lFdWJHUHlYRTVoMTIKcWxVdXRiN0sxZGlTd0JBVVNDbGtjbWtrcW9Tbm1HQitXZWZoZitNcUlmbzNMVy9HbkIrM1p5RFJqUjU5RkZOcgpCWWZsb0RKU1owd3ZXcytBRUpzQ0F3RUFBYU5GTUVNd0RnWURWUjBQQVFIL0JBUURBZ0trTUJJR0ExVWRFd0VCCi93UUlNQVlCQWY4Q0FRQXdIUVlEVlIwT0JCWUVGTDBBZVViQk4yei81ZmZpSGVRVE9CZVVTTXlHTUEwR0NTcUcKU0liM0RRRUJDd1VBQTRJQkFRQk1wcFBuQmdMQ0VaVVp3bDErSXVFbENyTnhYdXRxSVBFYlRhTDhiR0hOUWxYUwpuQWYwclBDbEtFcHJUazc2OEFJNTB1NEJWb00yY3hTYkV3MFhFQjVYM1EvS3lnNEkwTTc4ZzZJdDNwZ0VNMkFBCkF6YWZ2anBLZFhlSVQxUWU5dExCdkVaNXNZL2RqQjRPM2h0ZDNqRG5EM0FSUTY1OXFiTG1mbkxSaFpqMlVJNkkKWWUyenBCY0ZHRHBGSWJpZjBXQUh3eFV1di9kR09MT3RCSmRBMnFURXV4NFk5OU1iV0FuNU40dTVsRWxydDFEQgo1UWJlSm9Rb0hybEJQVWcvdXJ5TXZYdjhNbEdOTGVXTjMzdFlzSUV4UXo4OUNmYVEvQmh5VVpYTHh3UmNUem13CkllNzdLYzA2U0VxZHZMS3NDTkdmNkZNSjBqN2w2aXd6ZmplczVZSmEKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+          key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBdjhocmVsTk5DV1hzRFZ2elFQR0VlVHJWMnpBblNSM2ZET2NERy9JTHVDWXVXTUx6CmdkZ0NGQWZEdmJRRnhpZm9MQXNEeXNIYjZFbm9JZk0zVGJuczAvZTBjRzZDb2pPSysxS2VqbE9wQk9GWHFnQzQKUUJBVHBTaFBadTFnUzA2NlQwWDRDbDFHQ0U4UmRRcU1VdGh1ZG1FVUx6VE1IeTBjTmNnd3h2NkJDV1I2WU44TwpKaDlpR0pBNXAvSGxJbERGczdZcTk4MktvWnNENmJTRGxDaGx4NWJoRm1FOEJLQUgwUFNFWk1QUFFUN0x0QnRFCkhVOVJ1RElTNXNZL0pjVG1IWGFxVlM2MXZzclYySkxBRUJSSUtXUnlhU1NxaEtlWVlINVo1K0YvNHlvaCtqY3QKYjhhY0g3ZG5JTkdOSG4wVVUyc0ZoK1dnTWxKblRDOWF6NEFRbXdJREFRQUJBb0lCQVFDN1R2dnAxVUlBVTlOZwptTlhVTUE2NmVJUTJONm1tOTgzSnhEWjlMTUhWY1RVQzdDVDRSQWlEbDdITnJlMlZ3NVEycit0Y05FcWJiTk9UCmxRQUdvZmgwYmhHRlhlbW9rYjdFQjhWa0xNRi9TcmRjQ3FmcHFjb0dISUN3ZmxiMk5rWXc5cDF6UWZZTVYyMHQKYXNmeWdnQWhEbCt3VzFpaGVtVjdBYkxpSjkvUFV1cCt5eEZHT0djS0RjbXB3NDhIczE0Z09TMWhvbW10R2VybgoyS2lDNUdjMFUyMEFCVzFjcng0VXRVNVR0c1hFRlBSc0lVMXEvVFNrOXNxTnAxZGdRby9kSjBxcXI3ampucWg0CkVSUlViek1VQ2pvNnVraHhCR2M4N040emkwb3FtR1RkVHNma2gzRE1xU2xsT29NN2lJaExHT08xeFBlYkpJR3gKTzB0dEFxeUJBb0dCQU44REJnVW9zRnV4UVlSUzZRb2lGM1VQOFhPQjEvbEw0RTF5NURXOW9YL0xsK2VwclVocAptWnBTS3luYmNpM0RMV05rMDhQVFFCL3kva29Md0JsNWU1OFVTaXJKMFNlRmQvRVFNUEk1RFN2anQxNmUvNTZtCmFsNVh5MXIzS1lDMkUzMThrb2daZWl6UlowYkRSZVJFb0crSW5nU09Xb2tNLytWWUlKZ3Fac05EQW9HQkFOd20KMHcwMVV2R0lScW1YWjhqUWFZcXFoYm5obURqZUxZdmUwWVM2bTFYZkY5UjBtS013OE1GZm0rQU5OODNjQjRUSQpJeVhCWk5samdUZUREemJDclBuOW1EcSt2ZEUxemxtU3dDU0c3WHZNblM2bGZjSXpPN0NiR0xMYUo5VDdXejUvCktoU1M3d1JrRC90eXpxaEliTTFwbjh4WXdyM3d4TGJKck0xTVlhdkpBb0dCQUpIMkdxU1p3d1BnZWk4dlROT1QKQ0tOWHNnS1Z3MU9wYzc5OUtSeDdadzZMcEhxOXRXcWxveUU4RW9BczN3aFFySTVYV2JyYnN5YTJGZlZFeDVCawowS0tIMXhzMlNDeUQwTUw0Zy9DbG9wZE5UYUVpazgrMHYvM0xuSStISWFUYWh0c2xBNHNNa2NodnJoYkVqQ1FoClBwaUJaRnM3Q01xV3RZM1lKazB4dzF5ZEFvR0FZWFhhbHcxVlE5SVZuanlGMkpQVE5XMGFPRmtUdjVFMFRxaDgKenFxaDI5a2d2cEJEaG5OREVnaFdoRkMxdEsvRXNGYTlvSmhHSWlyMzZIQmZ5dGxTSkhYTTc2ekRjWnZGVjBndApRYjV0NGhHS1FEMUpPRERnS3VYdWdEY3R6UTdkclFRMHg5am9jV1F1NHgxSE9aNmVkQzFmYmVLWmkrYkwzelBYCkNTZllVV2tDZ1lFQWhpU0FYdno4UWcxRkY3K2dMSDVNaHppRlVaenhCOXUxdFNXVG96T3NaRyt4M3EwWkd3V0IKem5HU1FINVFqUkNqWWYwcnM5ZVhnTmJCTit1bklkY1lIbmhXRVk2ZEIvejNreE54d1BoU2R1VkVMeWhjcW5zbQowV0hEakJ1OXFoQXlhRldRWVl3RlJqbzVlMzVDZHZpd3VMU3lHL0VVRWNWNjVIUSs3WHJyLzUwPQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+      - op: replace
+        path: /cluster/serviceAccount
+        value:
+          # The base64 encoded private key for service account token generation.
+          key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBd2Z2cXZ4Q0RTSFNiLzI4OVdORWg3ZTBFQlJYbXdQVHZOVkhCb2RFY2wvMVltVmhrCjRMdlMvVHhHdXVnOFdham1YR05qMTU2MDMwWmE0WHNwVklqWEoxQTJBWnpBZDRZMmpKTWszeFJDWU5zNXJld0sKU0xmWTZTdkdHU3oyYVlvbzVlTUJWVmtCUi9EbnZnbVIveFJHaC9teFpRdWJtQXNNUktMT2tGU0hWY0YvbUtDRQo4MmFJcHAva1JuWFh6VmpVRkc1dm5vd1V0N2hRSWUvVUo0UnZ3ZEJBN3VOWUNKZll2eEFmRXF3RThjaXlUSlRmCndOK1FJajY4ZzBESHhGOU5pRjR0UDBjcDJNYS9rWHg0OEJXQk4xajRxclJsT2xVNkZOMnl5ZTBobDV6SGtFdVYKZlUxaE9NMUZuWDNVMWVFT1AyUURHMG1jQVhiTmhzVEYvVUdPWFFJREFRQUJBb0lCQUd5TWpJcklNYjZjeWlLQQozQUpVWExrb0ZVVEhRYTRlSWJGamc0Z0tYUWJNRlFVU1NyamJRYkRGUndzV0k1ZEVoVXVUcm00YytEZXN4ZlJCCkdCcWV6RTdLZXI0aU9pMW9KQ1E3dnJrNk8vNjVEaWk5MmU5aE9YY1pNS3dyMWVPdkZUMjI3cXNVdUR2S21kTmsKeFpiSWdNTmNQU0UvQXAxdEtUdExJMjN1YnlEVHdNc1Z3a3dHVHFubFhzVmRNSGYxYmg2ZEEybHhIOEhyZWl5MQpZeDN6bEViWFZZNlVMc0NvS2pjb3ZoRHM4VUhWU3JHVWJZeHU4SzRsSit0eWtBTy9HQWo0NlJqMUUxY0l3UjdmCkhmMklOOEhQYUVmak1laGU5UEpDcnBaTzc4R3Y5ZksvMThSTE05eDR5MjZzUi9nRTdkYnBRZGJwaXRPMHYrVTQKQUdlT1VDRUNnWUVBOTVRWjZqWXFxUjFPeHJkSTlDVjhjNlNwOHZ2MURENktXcFFRZlpzSXViemJWWGFCZ2orLworbHZuZG9ScXNGMzVwdWRjZ0MvcjBUalp0U3VoUzZJQzl3Y2w2dGZZSFNNVTVtN2IyWThlT0V1RVp3Sy9yanJSCmladm9wUkdWdTBSSW9nTW9yZXRxdER5eG16MU5HcDFHU2ZETStQejMxa0tDMWhhZUc4aXJQK2tDZ1lFQXlKVWUKVENjcEU1cDJCRzVSWU12T0FwTXhkZ1Z6NEptTUIzNDVsYXdOTy9lbmhlSEtqbEZ5aWYxT0ZIVVRlVFRLdExROQphWlBQanJYQTBzS1ZZMERQTXN4b2g2T0FNU1FMS0RVUHd3bkcwc3VMT3VLUDAxSk1acEwvWFhJYkZqWXQvSGp4CllXaVUxWFh0M0FMNUpubHZLUERNUFpKRHhXcUV1ZTZnWWFicTVsVUNnWUFZdm02UW4vVkhqYXhQNUFXZ2tSYU4KSUVuMEJRYUt3TDFuTENFeHpJcmt0V0ZlZTBlYVV2REcvdVIxVGVxejBkQ2Z3OFBVOC9VbnBmenNSSDRNWnhiUQp4YUFlaHBBTTZYS3ZUU2tmNTFQbjRIUk5MMU1sQUsvc2h1NkxnT1JzSVBqNWFFTnFqbnJOcEx0RGZxNzBGLy9zClorcTBmK1B0UUJ4L2RTYzhNNlFaOFFLQmdRREdaQjlzYVF0SzFXckhaU25lV0paeG00Ni9VaE5UNGV0TGVnQ1EKMW5UY2pFNUlzSlE5QWJnTlhkbzloN0wwSGxBa1BXWEVxQ3NSMXhsYUhKWFBic25CVDhaUDZscWZ3Q3U4NEFhdgovVnFISWtXYXYzNU1JTWxxWnhobkg3WkUyTi9SS1BwdVF4ZDZya0xPYXE1dDdJd1M3V0RGd1lhQW02T2RsN1ZRCkFOMnpaUUtCZ0JrS2RyWmJQK3lGRDN4NEs1ZXkzRGprRnovZUZQODBObmxyVUNCdHdqbGZ4VWpHR0NFZllnR3UKK05maUx4ZG1RcEpKbkN6UGc5WWg0eFY1VTVaeVNrKyt5aDhkK3hwcks0ckZ0SEVQUWMwVTFyY0tsZVU2ZUQxMgpBREUweC8ram9zeWI0Q2JUSnM1WVhSUHQ3RTRKQTQ2UkJFM2RmMTVGa2IrVmF4MmlML2ljCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+      - op: replace
+        path: /cluster/etcd/ca
+        value:
+          # The `ca` is the root certificate authority of the PKI.
+          crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM2akNDQWRLZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJek1ESXdOekE0TlRRME5sb1hEVE16TURJd05EQTROVGswTmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBS2RiClhnUGhwQkNrWUN0SzhjVmxuUGJ2bElYM0diQ01YdkUzOC9Wd1dMd2ZmZzllaFppQ3E0cWtLdzF3ZE14ZVlOWlEKbnZuK01Sa1F0NWtqZGp6Nnc5blNuRUZtaEZQTnovdFZWdHd6blVzb0ptaWdQalBBS2JPbzhEejFOSTZKVFV1cQpSY2lsMjNXbUN1emt3WjlJUnoyV24vbXh1b2VhQ01mZk50OFh1OW91TjNGaEhHR1FjL3FEVGxaMmFRajluUXdSCmVSN0srMm1uYjk5ZW5BeDJmR1J5YVJwSFA4cFQrd0Z0OFhISmkyQ2hQcnJuS21nR0hKeDVQSWliYWRBSTBEcmgKVWg4Z0l3QXdIbWM3TXU3SWw3OUhZZG1FemVwSlVKU1pJbjZmbVdjd1RKMFVvWkJYNkh6cmZhWVArT2FuNHFJYwp5bmU0blZlS2dML1pmVkdldTJNQ0F3RUFBYU5GTUVNd0RnWURWUjBQQVFIL0JBUURBZ0trTUJJR0ExVWRFd0VCCi93UUlNQVlCQWY4Q0FRQXdIUVlEVlIwT0JCWUVGRU83TlBDOVdQYndyZVpXdnhQVkljQy84WTIwTUEwR0NTcUcKU0liM0RRRUJDd1VBQTRJQkFRQnk5dTFLZStralpabUxEQlhteWt5ZUduNm15cjBObTdPeDBhRlk3bllzelRWMQpqcHBBbnRjWTI0RDdPTVowYUlWUFBCYzZCUHcxT0RhNnp0TXorLy9jTlQ5cGxOLzJtazhha0NwZHE3NW5tTFAxCmtaV3lVei9jQWpKNGI3TDFtM2ppNnd0WitmWDdickM2MUZ1TUZhTk1XRVhvZjRtTHdxSnlXR3loZTNIWEpxNDgKZEo2UUdiU0dDK21iRzlHa2VZdlhJQk54V3RQM1JVNjc1QW1YUmoyUVZZakJGSU5YaTRhcjh2U21CdUdrQjhvZAplOHVDZ0J2RVV4Zm85NFZpeUVLWnhTNWxUdU5RZWI3ZzBYMkhzME9veTgySGthMlRGWjJ4VUdneFBSVEJWRGxXCkhwUU1pTFhBT1dSWVdiUlJpSXkya0dLMnpoVDVaUnBLZ1BPRW5ZMXUKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+          key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBclYrZzZubmdFU3BtZ2M3aUg1RVk5WkVqOXhFTU5nV3k5Z3ljbUxKdW1HV3NhL3c4CjdtOTNWL3lKY0ZzNHNoNlBLSjV6Zjl2Wmh4SzNWbk1tR3lBR0loR1ZQMVVFODBlRDdNZ1RkakVGa0NBNDl4RFgKRGduMjRmbjJPRWZudjU5cFA3RVpodmlreHhyOFdocEEvNWVtVytvUlFGc2xHRmtGalRuWHloakNycms5dWlQdApoOEJENnBUa2lUZGZTL3JqaDR2MVRyKzhWOTA1L0Qxc3JCdGRzNkcrNTlwM1Y0ckU1bDVWRHpTc2Ztdm9aNk5tCkwzY2lDQzJEZSt3U3g2bWpzZXovYldYYjJ3cnhMU0VyM3grWE12Wk94WFlmWnpxOUFpL01oODlXby9OV3pNY2cKTFB2aDV2OGJWekg2OStjSVNxNEI2MnA3UHNOcXR3L3FUbUZwWFFJREFRQUJBb0lCQVFDYmY1VzRPQzk3dGVmUwpyVmVxc0YwT2cyc2FnYlBPRURaKzhMalRTOVpkNFhOUU54Ly9Td0pqYkNGcElLZ3RPYk4wM3drQXVKTFZ6emVZCjFoWnJaY0dhZE9MRHR1R0Z3YkxWZ0czVUtBdXhSUFZTdzB2ZlQ1aWEvYktVc0Fsdm1PNnhMWXFUd0JjcWJVM0IKRXFNUm0xYWVRY1hQVHZCcWNnM0VxUWllUHE3K1BiVGZ1WkUwSmErWm5HWW1JcnJRNU95aGtnR05BblFlVElaUwp4bFFKRnRVR0RtRmNWcDlPYm5oeVNjSkQ4WGZ4U25yMFIwcjk1U0taSmtCZjIxYUY2SHI4UXNFUW5aaVR1c3dYCnlFSi80R256WmFza2tGRWo5T2pQRit1Qk1UR2xJSlNyemZoNHNBSXVNUmZiSzBCaERJSUxLZHdWOGlzVDRucWoKbnFwTFR1dVJBb0dCQU5iTEhhZHNyVy92OEFYSzc0RFdFZk1ISWhRSm5HQlFUd1ZGa0I0RzRPUEZaS3F3NjMyRAp3TFlCZHprOTRrZ05mUVROZ1hjMHVFTDF0ZmFyWFlqUWQrald3SS83SWhqak9rbkN6aGUrQmMydDhIQWkvYzJxCndTek5Mckx2ZDQ4Wm52MHVNZkF2c1VuOEdGRVI4SlU1VjF0cTAzUHVubGJGdFNPQWh5S3dianRUQW9HQkFNNmkKVDBmZ0RuQm5nZFoxRXdiN3RCaGlkS0hxSWFGQndZSDZjUUJTMlpicVJPdkFYZkxSeTZweEpoVXd1RVV0RVhmdAowQTc1K29BOWdxUDVxOTJITjVSVjJBcnlyZzhGbVFNdFp2SW9jSTE4OFBpUWk5YzJ3clhXRHFqWG5NNWI5bnA5CnNySit3dWd6YllnandrdnM0U2dnOEVnaGJIcmFxSU1DZ29SdTllS1BBb0dCQUtqWTFxRE1QN0trek92ZzBWRlgKOXBneTNVa2ZIUHhoWlJ6aHlCNnlqWXEvbXhqTEp2TnQ1TW11Y1VoZ0swYzB3emhKVENLbklNb1NXVTVrKzR3WApSSXVXZFowNWIxNWRFVzcyWWdncjZtZjYrZTFNdEhNK2JjaUlLdE9paHp2SWlrREFWYVZYK0dnT2NoY1lvU1ROCkJLenFWdnJsY3pjSENCTzJiNFNIYUwvZEFvR0FjME1Nc0U0bUg4Tk5KS0NIclpTSDREWkRVdkkwTWl4bzBhVXUKbFh5aGpWSStnYmI3Y1BCZ0NFSTNlUWlGTVdrelhrK1VpRllleXB3RkhJeXZ0dEd2U2hvY2VmYm02dEEzaXhNdgpZcEwyUGFaZEVIb28xekxmcCtpd29yUXE3dDFUZnY1UXlNcDIxR21qaHBaVDBtQmZOREF6ZURqVXR5N3pZcWpxCnZ3N2FMN2NDZ1lCNWxKbENiZzdhL2d3TmxBUElKMk1VbUVkWnpja01TZVZxS1QrbE5udVpmbGZtOXJJdlZTSHkKSFJqK1UzbzhXRGFaM3crRWFZSWJqbWsrV1NIWkZVVkZvZFIyOGxJZnFkZGJ5Y2ZESExIaDBLY0NTWXkvc2JNSgpKMzRFK0I4YXVaaVFaWVRYdGw4elhCR09yVHBIWlRDM1M0UDNEM0VuQ1VMM3o1ZjhiRFpvaFE9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+      - op: add
+        path: /machine/features/kubernetesTalosAPIAccess
+        value:
+          enabled: true
+          allowedRoles:
+          - os:reader
+          allowedKubernetesNamespaces:
+          - kube-system
+      - op: replace
+        path: /machine/install
+        value:
+          extraKernelArgs:
+          - "talos.platform=vmware"
+#      - op: replace
+#        path: machines/controlPlane
+#        value:
+#          nodeDrainTimeout: ${NODE_DRAIN_TIMEOUT}
+      - op: add
+        path: /cluster/apiServer/extraArgs
+        value:
+          allow-privileged: "true"
+          anonymous-auth: "True"
+          authentication-token-webhook-version: authentication.k8s.io/v1beta1
+          authorization-mode: Node,RBAC
+          bind-address: "0.0.0.0"
+          kubelet-preferred-address-types: InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP
+          profiling: "False"
+          request-timeout: 1m0s
+      - op: replace
+        path: /cluster/apiServer/certSANs
+        value:
+          - ${CONTROL_PLANE_ENDPOINT}
+      - op: replace
+        path: /cluster/apiServer/admissionControl
+        value:
+          - name: PodSecurity
+            configuration:
+              apiVersion: pod-security.admission.config.k8s.io/v1alpha1
+              defaults:
+                  audit: restricted
+                  audit-version: latest
+                  enforce: baseline
+                  enforce-version: latest
+                  warn: restricted
+                  warn-version: latest
+              exemptions:
+                namespaces:
+                  - kube-system
+                runtimeClasses: []
+                usernames: []
+              kind: PodSecurityConfiguration
+      - op: add
+        path: /cluster/network/cni
+        value:
+          name: custom
+          urls:
+          - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/cni/cilium-v1.11.2.yaml
+      # Add taint to new nodes for VMware Cloud Controller (CPI)
+      - op: add
+        path: /machine/kubelet
+        value:
+          extraConfig:
+            registerWithTaints:
+            - key: node.cloudprovider.kubernetes.io/uninitialized
+              value: "true"
+              effect: NoSchedule
+      - op: add
+        path: /cluster/extraManifests
+        value:
+        - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/standard/vm-tools.yaml
+        - https://raw.githubusercontent.com/ErikLundJensen/cluster-api-templates/main/vsphere/standard/cpi.yaml
+      
+    
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VSphereMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-controlplane-${VSPHERE_CONTROL_PLANE_TEMPLATE}-${CONTROL_PLANE_REVISION}
+  labels:
+    cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-controlplane
+spec:
+  template:
+    spec:
+      cloneMode: linkedClone
+      datacenter: ${VSPHERE_DATACENTER}
+      datastore: ${VSPHERE_CONTROL_PLANE_DATASTORE}
+      diskGiB: 10
+      additionalDisksGiB:
+      - 10
+      folder: ${VSPHERE_FOLDER}
+      memoryMiB: 4096
+      network:
+        devices:
+        - dhcp4: false
+          dhcp6: false
+          gateway4: 172.16.42.1
+          nameservers:
+          - 172.16.42.1
+          addressesFromPools:
+          - apiGroup: ipam.cluster.x-k8s.io
+            kind: InClusterIPPool
+            name: ${CLUSTER_NAME}-controlplane
+          networkName: ${VSPHERE_NETWORK}
+      numCPUs: 2
+      os: Linux
+      resourcePool: "${VSPHERE_RESOURCE_POOL}"
+      server: ${VSPHERE_SERVER}
+      storagePolicyName: ""
+      template: ${VSPHERE_CONTROL_PLANE_TEMPLATE}
+      thumbprint: ${VSPHERE_TLS_THUMBPRINT}
+---
+## Worker configs
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+    nodepool: nodepool-a
+  name: ${CLUSTER_NAME}-workers
+spec:
+  clusterName: ${CLUSTER_NAME}
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+      nodepool: nodepool-a
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+        nodepool: nodepool-a
+    spec:
+      clusterName: ${CLUSTER_NAME}
+      # TODO: a/b in a multi-zone setup
+      #failureDomain: ${VSPHERE_ZONE}-a
+      version: ${KUBERNETES_VERSION}
+      bootstrap:
+        configRef:
+          name: ${CLUSTER_NAME}-workers
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
+      infrastructureRef:
+        name: ${CLUSTER_NAME}-workers-${VSPHERE_WORKER_TEMPLATE}-${WORKER_REVISION}
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: VSphereMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VSphereMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-workers-${VSPHERE_WORKER_TEMPLATE}-${WORKER_REVISION}
+  labels:
+    cluster.x-k8s.io/ip-pool-name: ${CLUSTER_NAME}-worker
+spec:
+  template:
+    spec:
+      cloneMode: linkedClone
+      datacenter: ${VSPHERE_DATACENTER}
+      datastore: ${VSPHERE_WORKER_DATASTORE}
+      diskGiB: 10
+      additionalDisksGiB:
+      - 10
+      folder: ${VSPHERE_FOLDER}
+      memoryMiB: 4096
+      network:
+        devices:
+        - dhcp4: false
+          dhcp6: false
+          gateway4: 172.16.42.1
+          nameservers:
+          - 172.16.42.1
+          addressesFromPools:
+          - apiGroup: ipam.cluster.x-k8s.io
+            kind: InClusterIPPool
+            name: ${CLUSTER_NAME}-worker
+          networkName: ${VSPHERE_NETWORK}
+      numCPUs: 2
+      os: Linux
+      resourcePool: "${VSPHERE_RESOURCE_POOL}"
+      server: ${VSPHERE_SERVER}
+      storagePolicyName: ""
+      template: ${VSPHERE_WORKER_TEMPLATE}
+      thumbprint: ${VSPHERE_TLS_THUMBPRINT}
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
+metadata:
+  name: ${CLUSTER_NAME}-workers
+spec:
+  template:
+    spec:
+      generateType: join
+      talosVersion: ${TALOS_VERSION}
+      configPatches:
+      # Add taint to new nodes for VMware Cloud Controller (CPI)
+      - op: add
+        path: /machine/kubelet
+        value:
+          extraConfig:
+            registerWithTaints:
+            - key: node.cloudprovider.kubernetes.io/uninitialized
+              value: "true"
+              effect: NoSchedule
+      # Reuse existing keys
+      - op: replace
+        path: /machine/token
+        value: mobmsk.hsl02361pohacaja # The `token` is used by a machine to join the PKI of the cluster.
+      - op: replace
+        path: /machine/ca
+        value:
+          # The root certificate authority of the PKI.
+          crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJQekNCOHFBREFnRUNBaEVBOVJvM3JERGhxMEtMS2N5Rkp5c3lhREFGQmdNclpYQXdFREVPTUF3R0ExVUUKQ2hNRmRHRnNiM013SGhjTk1qTXdNakEzTVRFek9UQTNXaGNOTXpNd01qQTBNVEV6T1RBM1dqQVFNUTR3REFZRApWUVFLRXdWMFlXeHZjekFxTUFVR0F5dGxjQU1oQURNOXErQWR1bjV5VFFiNTFTeE0xZlkyQUlQSitpa0NaL0NKCjZ1SEtOK2FLbzJFd1h6QU9CZ05WSFE4QkFmOEVCQU1DQW9Rd0hRWURWUjBsQkJZd0ZBWUlLd1lCQlFVSEF3RUcKQ0NzR0FRVUZCd01DTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRktUdHpZM25sZ3ZHd3Brcgo3WEJRWlhKbXR3NFBNQVVHQXl0bGNBTkJBRWtHRmxvaG50UHBMbW41Q1BSaGlybFRnSHJVU2MvYlJ1V0Zna0VDCmJxMTVON1RvNGo1M2VjU2xlZWFoK1FCZzgxUjlVTWtJSFAyaGphTU5uamdoZmdVPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+          key: ""
+      - op: replace
+        path: /cluster/id
+        value: np_niFGAQfCsPMNW-UzXaqxCxHAamOu9sddXWLMvB7E= # Globally unique identifier for this cluster (base64 encoded random 32 bytes).
+      - op: replace
+        path: /cluster/secret
+        value: /M3QLTfxnLlYYXdwKcBSzWpVpszXnjCu0v4I7QmYJ+k= # Shared secret of cluster (base64 encoded random 32 bytes).
+      - op: replace
+        path: /cluster/token
+        value: alv2o1.1sdaox7rqz384fcv # The [bootstrap token](https://kubernetes.io/docs/reference/access-authn-authz/bootstrap-tokens/) used to join the cluster.
+      - op: replace
+        path: /cluster/ca
+        value:
+          # The base64 encoded root certificate authority used by Kubernetes.
+          crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM2akNDQWRLZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJek1ESXdOekE0TlRRME5sb1hEVE16TURJd05EQTROVGswTmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBS2RiClhnUGhwQkNrWUN0SzhjVmxuUGJ2bElYM0diQ01YdkUzOC9Wd1dMd2ZmZzllaFppQ3E0cWtLdzF3ZE14ZVlOWlEKbnZuK01Sa1F0NWtqZGp6Nnc5blNuRUZtaEZQTnovdFZWdHd6blVzb0ptaWdQalBBS2JPbzhEejFOSTZKVFV1cQpSY2lsMjNXbUN1emt3WjlJUnoyV24vbXh1b2VhQ01mZk50OFh1OW91TjNGaEhHR1FjL3FEVGxaMmFRajluUXdSCmVSN0srMm1uYjk5ZW5BeDJmR1J5YVJwSFA4cFQrd0Z0OFhISmkyQ2hQcnJuS21nR0hKeDVQSWliYWRBSTBEcmgKVWg4Z0l3QXdIbWM3TXU3SWw3OUhZZG1FemVwSlVKU1pJbjZmbVdjd1RKMFVvWkJYNkh6cmZhWVArT2FuNHFJYwp5bmU0blZlS2dML1pmVkdldTJNQ0F3RUFBYU5GTUVNd0RnWURWUjBQQVFIL0JBUURBZ0trTUJJR0ExVWRFd0VCCi93UUlNQVlCQWY4Q0FRQXdIUVlEVlIwT0JCWUVGRU83TlBDOVdQYndyZVpXdnhQVkljQy84WTIwTUEwR0NTcUcKU0liM0RRRUJDd1VBQTRJQkFRQnk5dTFLZStralpabUxEQlhteWt5ZUduNm15cjBObTdPeDBhRlk3bllzelRWMQpqcHBBbnRjWTI0RDdPTVowYUlWUFBCYzZCUHcxT0RhNnp0TXorLy9jTlQ5cGxOLzJtazhha0NwZHE3NW5tTFAxCmtaV3lVei9jQWpKNGI3TDFtM2ppNnd0WitmWDdickM2MUZ1TUZhTk1XRVhvZjRtTHdxSnlXR3loZTNIWEpxNDgKZEo2UUdiU0dDK21iRzlHa2VZdlhJQk54V3RQM1JVNjc1QW1YUmoyUVZZakJGSU5YaTRhcjh2U21CdUdrQjhvZAplOHVDZ0J2RVV4Zm85NFZpeUVLWnhTNWxUdU5RZWI3ZzBYMkhzME9veTgySGthMlRGWjJ4VUdneFBSVEJWRGxXCkhwUU1pTFhBT1dSWVdiUlJpSXkya0dLMnpoVDVaUnBLZ1BPRW5ZMXUKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+          key: ""
+---
+## Health check for workers
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: MachineHealthCheck
+metadata:
+  name: ${CLUSTER_NAME}-worker-hc
+spec:
+  clusterName: ${CLUSTER_NAME}
+  maxUnhealthy: 40%
+  nodeStartupTimeout: 20m
+  selector:
+    matchLabels:
+      nodepool: nodepool-a
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s

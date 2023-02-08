@@ -12,12 +12,16 @@ Import the ESXi host into vCenter
 export GITHUB_TOKEN=
 . secrets/envsecrets.sh
 
+# Select if cluster is migrated from existing or a new standard cluster
+#export CLUSTER_TYPE=standard
+export CLUSTER_TYPE=migration
+
 kind create cluster -n kind-talos-vsphere-poc
-kubectl create ns vmware-test
-kubectl apply -f secrets/secret.yaml -n vmware-test
-. ../standard/standard.env
+
+. ../standard/${CLUSTER_TYPE}.env
+kubectl create ns ${MGMT_NAMESPACE}
 envsubst < ../standard/ipam.yaml >ipam.yaml
-envsubst < ../standard/standard.yaml >cluster.yaml
+envsubst < ../standard/${CLUSTER_TYPE}.yaml >cluster.yaml
 envsubst < ../standard/cpi-secrets.yaml >cpi-secrets.yaml
 
 export KUBERNETES_API_SERVER_ADDRESS=${CONTROL_PLANE_ENDPOINT}
@@ -61,32 +65,36 @@ clusterctl init --ipam in-cluster
 kubectl get pods -A
 
 # Create the cluster
-kubectl apply -f ipam.yaml -n vmware-test
-kubectl apply -f cluster.yaml -n vmware-test
+kubectl apply -f ipam.yaml -n ${MGMT_NAMESPACE}
+kubectl apply -f secrets/${CLUSTER_NAME}-secret.yaml -n ${MGMT_NAMESPACE}
+kubectl apply -f cluster.yaml -n ${MGMT_NAMESPACE}
 
 # Get config
-export configname=`kubectl get talosconfig -n vmware-test | grep vmware-test-controlplane | cut -d' ' -f1 | head -1`
-kubectl get talosconfig -n vmware-test ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > talosconfig
+export configname=`kubectl get talosconfig -n ${MGMT_NAMESPACE} | grep ${CLUSTER_NAME}-controlplane | cut -d' ' -f1 | head -1`
+kubectl get talosconfig -n ${MGMT_NAMESPACE} ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > ${CLUSTER_NAME}-talosconfig
 
-kubectl get secret --namespace vmware-test vmware-test-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > cluster-talosconfig
-talosctl config merge cluster-talosconfig
+kubectl get secret -n ${MGMT_NAMESPACE} ${CLUSTER_NAME}-talosconfig -o jsonpath='{.data.talosconfig}' | base64 -d > ${CLUSTER_NAME}-cluster-talosconfig
+#talosctl config merge --talosconfig ./${CLUSTER_NAME}-talosconfig ${CLUSTER_NAME}-cluster-talosconfig
 
 # Work-a-round: Set IP address of control plane
 export IP=172.16.42.230
 
 talosctl -n ${IP} --endpoints ${IP} version
 
-talosctl bootstrap --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP}
+# Only for new clusters (not migrated clusters)
+talosctl bootstrap --talosconfig ./${CLUSTER_NAME}-talosconfig --endpoints ${IP} --nodes ${IP}
 
 # Switch kubectl to remote Talos cluster
 export KUBECONFIG=./kubeconfig-remote
 export IP=172.16.42.230
-talosctl  -n ${IP} --talosconfig=./talosconfig --endpoints ${IP} kubeconfig
+talosctl  -n ${IP} --talosconfig=./${CLUSTER_NAME}-talosconfig --endpoints ${IP} kubeconfig
 
 # Add secret and configuration for CPI
 kubectl apply -f cpi-secrets.yaml
 kubectl apply -f secrets/cilium-secrets.yaml
 
+
+talosctl ls --talosconfig ./${CLUSTER_NAME}-talosconfig --endpoints ${IP} --nodes ${IP}
 
 # Verify nodes
 kubectl get nodes
@@ -97,7 +105,7 @@ export KUBECONFIG=
 clusterctl describe cluster  vmware-test -n vmware-test
 
 # Check the kernel log from a node
-talosctl --talosconfig ./talosconfig --endpoints ${IP} --nodes ${IP} dmesg
+talosctl --talosconfig ./${CLUSTER_NAME}-talosconfig --endpoints ${IP} --nodes ${IP} dmesg
 
 ```
 ...
@@ -153,7 +161,11 @@ kubectl get secret/source-kubeconfig -o json -n source | jq -r .data.value  | ba
 # For remote cluster:
 export KUBECONFIG=source.kubeconfig
 kubectl apply -f cpi-secrets.yaml
-kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+kubectl apply -f secrets/cilium-secrets.yaml
+kubectl apply -f ../cni/cilium-v1.12.6.yaml
+
+# Use Cilium until Calico fixes https://github.com/tigera/operator/issues/2444
+#kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 
 
 ```
