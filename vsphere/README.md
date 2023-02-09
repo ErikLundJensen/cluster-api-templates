@@ -19,6 +19,7 @@ export CLUSTER_TYPE=migration
 kind create cluster -n kind-talos-vsphere-poc
 
 . ../standard/${CLUSTER_TYPE}.env
+. ../standard/clusterSecrets.env
 kubectl create ns ${MGMT_NAMESPACE}
 envsubst < ../standard/ipam.yaml >ipam.yaml
 envsubst < ../standard/${CLUSTER_TYPE}.yaml >cluster.yaml
@@ -67,6 +68,7 @@ kubectl get pods -A
 # Create the cluster
 kubectl apply -f ipam.yaml -n ${MGMT_NAMESPACE}
 kubectl apply -f secrets/${CLUSTER_NAME}-secret.yaml -n ${MGMT_NAMESPACE}
+kubectl apply -f secrets/${CLUSTER_NAME}-talos-secret.yaml -n ${MGMT_NAMESPACE}
 kubectl apply -f cluster.yaml -n ${MGMT_NAMESPACE}
 
 # Get config
