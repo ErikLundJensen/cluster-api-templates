@@ -71,6 +71,7 @@ kubectl apply -f secrets/${CLUSTER_NAME}-secret.yaml -n ${MGMT_NAMESPACE}
 kubectl apply -f secrets/${CLUSTER_NAME}-talos-secret.yaml -n ${MGMT_NAMESPACE}
 kubectl apply -f cluster.yaml -n ${MGMT_NAMESPACE}
 
+
 # Get config
 export configname=`kubectl get talosconfig -n ${MGMT_NAMESPACE} | grep ${CLUSTER_NAME}-controlplane | cut -d' ' -f1 | head -1`
 kubectl get talosconfig -n ${MGMT_NAMESPACE} ${configname}  -o yaml -o jsonpath='{.status.talosConfig}' > ${CLUSTER_NAME}-talosconfig
@@ -110,6 +111,21 @@ clusterctl describe cluster  vmware-test -n vmware-test
 talosctl --talosconfig ./${CLUSTER_NAME}-talosconfig --endpoints ${IP} --nodes ${IP} dmesg
 
 ```
+
+### After cluster is ready, exctract PKI data from kubeadm source cluster.
+```
+# In pod at controlplane node:
+cd /etc/kubernetes
+tar cvf pki.tar pki
+
+kubeadm token create
+
+# Copy tar file from remote pod
+export nodeshell=`k get pods -A -o name | grep node-sh`
+k cp -n kube-system  $nodeshell:/etc/kubernetes/pki.tar pki.tar
+mv keys keys-$date
+mv pki.tar keys
+```
 ...
 
 # Delete cluster
@@ -122,15 +138,13 @@ kind delete cluster -n kind-talos-vsphere-poc
 
 ```
 
-###############
-#
+
+
 # PoC - migration from Kubeadm cluster to Talos
-#
-#################
 ```
 kind create cluster -n kind-kubeadm-vsphere-poc
+kubectl config use-context kind-kind-kubeadm-vsphere-poc 
 kubectl create ns source
-kubectl apply -f secrets/source-secret.yaml -n source
 . secrets/envsecrets.sh
 . ../kubeadm/kubeadm.env
 envsubst < ../kubeadm/ipam.yaml >ipam.yaml
@@ -155,14 +169,17 @@ kubectl get pods -A
 
 # Create the cluster
 kubectl apply -f ipam.yaml -n source
+kubectl apply -f secrets/source-secret.yaml -n source
 kubectl apply -f cluster.yaml -n source
-
 
 kubectl get secret/source-kubeconfig -o json -n source | jq -r .data.value  | base64 --decode > ./source.kubeconfig
 
 # For remote cluster:
 export KUBECONFIG=source.kubeconfig
-kubectl apply -f cpi-secrets.yaml
+
+# Prepare for Kubernetes 1.26 admission controller
+kubectl label ns kube-system pod-security.kubernetes.io/enforce=privileged
+
 kubectl apply -f secrets/cilium-secrets.yaml
 kubectl apply -f ../cni/cilium-v1.12.6.yaml
 

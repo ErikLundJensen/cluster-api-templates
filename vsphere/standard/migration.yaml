@@ -61,11 +61,11 @@ spec:
         path: /machine/token
         value: ${MACHINE_TOKEN}
       - op: replace
-        path: /machine/ca
-        value:
-          # The root certificate authority of the PKI.
-          crt: ${MACHINE_CA_CRT}
-          key: ${MACHINE_CA_KEY}
+        path: /machine/ca/crt
+        value: ${MACHINE_CA_CRT}
+      - op: replace
+        path: /machine/ca/key
+        value: ${MACHINE_CA_KEY}
       - op: replace
         path: /cluster/id
         value: ${CLUSTER_ID}
@@ -79,10 +79,11 @@ spec:
         path: /cluster/aescbcEncryptionSecret
         value: ${CLUSTER_AESCBCENCRYPTIONSECRET}
       - op: replace
-        path: /cluster/ca
-        value:
-          crt: ${CLUSTER_CA_CRT}
-          key: ${CLUSTER_CA_KEY}
+        path: /cluster/ca/crt
+        value: ${CLUSTER_CA_CRT}
+      - op: replace
+        path: /cluster/ca/key
+        value: ${CLUSTER_CA_KEY}
       - op: replace
         path: /cluster/aggregatorCA/crt
         value: ${CLUSTER_AGGREGATORCA_CRT}
@@ -119,13 +120,19 @@ spec:
         path: /cluster/apiServer/extraArgs
         value:
           allow-privileged: "true"
-          anonymous-auth: "True"
+          anonymous-auth: "true"
           authentication-token-webhook-version: authentication.k8s.io/v1beta1
           authorization-mode: Node,RBAC
           bind-address: "0.0.0.0"
           kubelet-preferred-address-types: InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP
-          profiling: "False"
+          profiling: "false"
           request-timeout: 1m0s
+      # Backwards compatible with kubeadm
+      - op: add
+        path: /cluster/etcd/extraArgs
+        value:
+          cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384    
+          snapshot-count: "10000"
       - op: replace
         path: /cluster/apiServer/certSANs
         value:
@@ -303,7 +310,7 @@ spec:
       # Reuse existing keys
       - op: replace
         path: /machine/token
-        value: mobmsk.hsl02361pohacaja # The `token` is used by a machine to join the PKI of the cluster.
+        value: ${MACHINE_TOKEN}
       - op: replace
         path: /machine/ca/crt
         value: ${MACHINE_CA_CRT}
@@ -324,8 +331,7 @@ spec:
         value: ${CLUSTER_CA_CRT}
       - op: replace
         path: /cluster/ca/key
-        value: ${CLUSTER_CA_CRT}
-
+        value: ""
 ---
 ## Health check for workers
 apiVersion: cluster.x-k8s.io/v1alpha4
