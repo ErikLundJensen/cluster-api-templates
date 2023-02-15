@@ -68,7 +68,11 @@ kubectl get pods -A
 # Create the cluster
 kubectl apply -f ipam.yaml -n ${MGMT_NAMESPACE}
 kubectl apply -f secrets/${CLUSTER_NAME}-secret.yaml -n ${MGMT_NAMESPACE}
+
+# If migration then apply this secret
 kubectl apply -f secrets/${CLUSTER_NAME}-talos-secret.yaml -n ${MGMT_NAMESPACE}
+
+# Create the cluster
 kubectl apply -f cluster.yaml -n ${MGMT_NAMESPACE}
 
 
